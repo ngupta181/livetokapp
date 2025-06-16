@@ -41,8 +41,13 @@ class _ForYouScreenState extends State<ForYouScreen> with AutomaticKeepAliveClie
   }
 
   Future<void> _initializeAds() async {
-    await AdHelper.initAds();
-    await _adManager.preloadAds();
+    try {
+      await AdHelper.initAds();
+      await _adManager.preloadAds();
+    } catch (e) {
+      print('Error initializing ads: $e');
+      // Continue app flow even if ads fail to initialize
+    }
   }
 
   @override
@@ -140,7 +145,7 @@ class _ForYouScreenState extends State<ForYouScreen> with AutomaticKeepAliveClie
     if (mList.length > index && index >= 0) {
       /// Create new controller
       final VideoPlayerController controller =
-          VideoPlayerController.networkUrl(Uri.parse(ConstRes.itemBaseUrl + (mList[index].postVideo ?? '')));
+          VideoPlayerController.networkUrl(Uri.parse(ConstRes.getImageUrl(mList[index].postVideo)));
 
       /// Add to [controllers] list
       controllers[index] = controller;

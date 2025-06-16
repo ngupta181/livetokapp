@@ -35,20 +35,27 @@ class _VideoViewState extends State<VideoView> {
   void videoInit() {
     duration = const Duration();
     videoPlayerController = VideoPlayerController.networkUrl(
-      Uri.parse('${ConstRes.itemBaseUrl}$videoPath'),
+      Uri.parse(ConstRes.getImageUrl(videoPath)),
     )..initialize().then((value) {
+        if (!mounted) return;
         videoPlayerController.play().then((value) {
+          if (!mounted) return;
           isUIVisible = true;
           setState(() {});
         });
-        timer = Timer.periodic(videoPlayerController.value.position, (timer) {
+        
+        // Create a safer timer with proper disposal handling
+        timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted) return;
           duration = videoPlayerController.value.position;
           setState(() {});
         });
       }).onError((e, e1) {
+        if (!mounted) return;
         isExceptionError = true;
         setState(() {});
       }).catchError((e) {
+        if (!mounted) return;
         isExceptionError = true;
         setState(() {});
       });

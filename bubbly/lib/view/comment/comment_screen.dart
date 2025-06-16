@@ -229,7 +229,7 @@ class _CommentScreenState extends State<CommentScreen> {
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundImage: NetworkImage(
-                            ConstRes.itemBaseUrl + (user.userProfile ?? ''),
+                            ConstRes.getImageUrl(user.userProfile),
                           ),
                         ),
                         title: Text(user.fullName ?? ''),

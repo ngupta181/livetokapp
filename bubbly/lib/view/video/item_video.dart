@@ -56,36 +56,67 @@ class ItemVideoState extends State<ItemVideo> {
   void initState() {
     prefData();
     super.initState();
+    
+    // Add video playback state listener
     widget.videoPlayerController?.addListener(_videoListener);
-    widget.videoPlayerController?.addListener(() {
-      if (mounted) {
-        setState(() {
-          currentPosition = widget.videoPlayerController?.value.position ?? Duration.zero;
-        });
-      }
-    });
+    
+    // Add position update listener with mounted check
+    widget.videoPlayerController?.addListener(_positionListener);
   }
 
   @override
-  Future<void> dispose() async {
-    super.dispose();
-    await widget.videoPlayerController?.pause();
-    _viewDurationTimer?.cancel();
-    // Track final view duration when widget is disposed
-    _trackViewDuration();
+  void dispose() {
+    // First remove all listeners to prevent callbacks after dispose
     widget.videoPlayerController?.removeListener(_videoListener);
+    widget.videoPlayerController?.removeListener(_positionListener);
+    
+    // Cancel timers    
+    _viewDurationTimer?.cancel();
     _hideControlsTimer?.cancel();
+    
+    // Track view duration before disposal
+    _trackViewDuration();
+    
+    // Clean up ad manager
+    try {
+      _adManager.pauseVideoPlayback();
+    } catch (e) {
+      print('Error cleaning up ad manager: $e');
+    }
+    
+    // Safely pause the player if it's currently playing
+    final wasPlaying = widget.videoPlayerController?.value.isPlaying ?? false;
+    if (wasPlaying) {
+      _pauseVideoSafely();
+    }
+    
+    // Always call super.dispose() directly (not in an async block)
+    super.dispose();
   }
 
   void _videoListener() {
     if (widget.videoPlayerController?.value.isPlaying != isPlaying) {
       isPlaying = widget.videoPlayerController?.value.isPlaying ?? false;
-      if (isPlaying) {
-        _adManager.startVideoPlayback();
-      } else {
-        _adManager.pauseVideoPlayback();
+      try {
+        if (isPlaying) {
+          _adManager.startVideoPlayback();
+        } else {
+          _adManager.pauseVideoPlayback();
+        }
+      } catch (e) {
+        print('Error in video ad manager: $e');
+        // Continue playback even if ad manager fails
       }
     }
+  }
+
+  // Separate method for position updates to allow clean removal
+  void _positionListener() {
+    if (!mounted) return;
+    
+    setState(() {
+      currentPosition = widget.videoPlayerController?.value.position ?? Duration.zero;
+    });
   }
 
   @override
@@ -111,7 +142,7 @@ class ItemVideoState extends State<ItemVideo> {
                 _trackViewDuration();
               }
             },
-            key: Key('ke1' + (ConstRes.itemBaseUrl + widget.videoData!.postVideo!)),
+            key: Key('ke1' + ConstRes.getImageUrl(widget.videoData!.postVideo)),
             child: SizedBox.expand(
               child: FittedBox(
                 fit: (widget.videoPlayerController?.value.size.width ?? 0) <
@@ -543,16 +574,24 @@ class ItemVideoState extends State<ItemVideo> {
   }
 
   void _showControls() {
+    if (!mounted) return;
+    
+    // Cancel any existing hide timer
+    _hideControlsTimer?.cancel();
+    
     setState(() {
       isShowingControls = true;
     });
-    _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          isShowingControls = false;
-        });
-      }
+    
+    // Set a new hide timer
+    _hideControlsTimer = Timer(Duration(seconds: 3), _hideControls);
+  }
+  
+  void _hideControls() {
+    if (!mounted) return;
+    
+    setState(() {
+      isShowingControls = false;
     });
   }
 
@@ -561,5 +600,14 @@ class ItemVideoState extends State<ItemVideo> {
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  // Separate method for async operations
+  Future<void> _pauseVideoSafely() async {
+    try {
+      await widget.videoPlayerController?.pause();
+    } catch (e) {
+      // Ignore errors during disposal
+    }
   }
 }

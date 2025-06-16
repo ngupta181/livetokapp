@@ -309,7 +309,7 @@ class _ItemExploreState extends State<ItemExplore> {
                             fit: StackFit.expand,
                             children: [
                               Image.network(
-                                ConstRes.itemBaseUrl + (video.thumbnail ?? ''),
+                                ConstRes.getImageUrl(video.thumbnail),
                                 fit: BoxFit.cover,
                               ),
                               if (index == 14 && widget.exploreData.recentVideos!.length > 15)
@@ -345,8 +345,8 @@ class _ItemExploreState extends State<ItemExplore> {
                       height: 165,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      image: NetworkImage(ConstRes.itemBaseUrl +
-                          widget.exploreData.hashTagProfile!),
+                      image: NetworkImage(ConstRes.getImageUrl(
+                          widget.exploreData.hashTagProfile)),
                     ),
                   ),
                 ),

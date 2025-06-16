@@ -134,6 +134,7 @@ class AdManager {
   static const int _minAdDuration = 5; // Minimum ad duration before skip option
   int _adsShownInSession = 0;
   bool _canSkipAd = false;
+  bool _isInterstitialAdReady = false;
 
   int get _videosBetweenAds {
     // Progressive frequency based on total videos watched
@@ -198,20 +199,17 @@ class AdManager {
   }
 
   Future<void> preloadAds() async {
-    _interstitialAd = await AdHelper.loadInterstitialAd();
-  }
-
-  Future<void> showInterstitialAd() async {
-    if (_interstitialAd == null) {
-      await preloadAds();
+    // Dispose any existing ad first
+    if (_interstitialAd != null) {
+      _interstitialAd!.dispose();
+      _interstitialAd = null;
     }
-
-    if (_interstitialAd != null && _canShowAd()) {
-      _lastAdTime = DateTime.now();
-      _adsShownInSession++;
-      _canSkipAd = false;
-
-      // Configure the ad
+    
+    _isInterstitialAdReady = false;
+    _interstitialAd = await AdHelper.loadInterstitialAd();
+    
+    if (_interstitialAd != null) {
+      // Configure the ad callback right after loading
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdShowedFullScreenContent: (InterstitialAd ad) {
           // Start timers for ad duration control
@@ -219,18 +217,46 @@ class AdManager {
         },
         onAdDismissedFullScreenContent: (InterstitialAd ad) {
           _cleanupAdTimers();
+          _isInterstitialAdReady = false;
           ad.dispose();
           // Preload next ad
           preloadAds();
         },
         onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+          print('Ad failed to show: ${error.message}');
           _cleanupAdTimers();
+          _isInterstitialAdReady = false;
           ad.dispose();
           preloadAds();
         },
       );
+      _isInterstitialAdReady = true;
+    }
+  }
 
-      await _interstitialAd!.show();
+  Future<void> showInterstitialAd() async {
+    // If ad is not ready, try to load it first
+    if (!_isInterstitialAdReady || _interstitialAd == null) {
+      await preloadAds();
+    }
+
+    // Double check if ad is ready after loading attempt
+    if (_isInterstitialAdReady && _interstitialAd != null && _canShowAd()) {
+      try {
+        _lastAdTime = DateTime.now();
+        _adsShownInSession++;
+        _canSkipAd = false;
+
+        await _interstitialAd!.show();
+      } catch (e) {
+        print('Error showing ad: $e');
+        // If showing fails, mark as not ready and reload
+        _isInterstitialAdReady = false;
+        preloadAds();
+      }
+    } else {
+      // If ad still not ready, schedule a reload for next time
+      preloadAds();
     }
   }
 
@@ -261,11 +287,14 @@ class AdManager {
     }
   }
 
-  @override
   void dispose() {
     _midRollTimer?.cancel();
     _adDurationTimer?.cancel();
-    _interstitialAd?.dispose();
+    if (_interstitialAd != null) {
+      _interstitialAd!.dispose();
+      _interstitialAd = null;
+    }
+    _isInterstitialAdReady = false;
   }
 }
 

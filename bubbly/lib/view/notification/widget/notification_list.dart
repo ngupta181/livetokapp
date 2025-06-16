@@ -42,6 +42,12 @@ class _NotificationListState extends State<NotificationList> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return isLoading == true
         ? LoaderDialog()
@@ -105,8 +111,7 @@ class _NotificationListState extends State<NotificationList> {
                                   color: Colors.transparent,
                                   child: ClipOval(
                                     child: Image.network(
-                                      ConstRes.itemBaseUrl +
-                                          "${notificationData.senderUser?.userProfile}",
+                                      ConstRes.getImageUrl(notificationData.senderUser?.userProfile),
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) {
@@ -211,7 +216,7 @@ class _NotificationListState extends State<NotificationList> {
     }
     if (notificationList.isEmpty) {
       isLoading = true;
-      setState(() {});
+      if (mounted) setState(() {});
     }
     ApiService()
         .getNotificationList(
@@ -223,7 +228,7 @@ class _NotificationListState extends State<NotificationList> {
         if ((value.data?.length ?? 0) < paginationLimit) {
           hasMoreData = false;
         }
-        setState(() {});
+        if (mounted) setState(() {});
       },
     );
   }

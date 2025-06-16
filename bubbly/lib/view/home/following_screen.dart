@@ -38,7 +38,7 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
 
   @override
   void initState() {
-    _adManager.preloadAds();
+    _initializeAds();
     callApiFollowing((p0) {
       initVideoPlayer();
     }, true);
@@ -202,7 +202,7 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
     if (mList.length > index && index >= 0) {
       /// Create new controller
       final VideoPlayerController controller =
-          VideoPlayerController.networkUrl(Uri.parse(ConstRes.itemBaseUrl + (mList[index].postVideo ?? '')));
+          VideoPlayerController.networkUrl(Uri.parse(ConstRes.getImageUrl(mList[index].postVideo)));
 
       /// Add to [controllers] list
       controllers[index] = controller;
@@ -312,4 +312,14 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _initializeAds() async {
+    try {
+      await AdHelper.initAds();
+      await _adManager.preloadAds();
+    } catch (e) {
+      print('Error initializing ads: $e');
+      // Continue app flow even if ads fail to initialize
+    }
+  }
 }

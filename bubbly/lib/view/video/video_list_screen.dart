@@ -236,7 +236,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     if (mList.length > index && index >= 0) {
       /// Create new controller
       final VideoPlayerController controller =
-          VideoPlayerController.networkUrl(Uri.parse(ConstRes.itemBaseUrl + (mList[index].postVideo ?? '')));
+          VideoPlayerController.networkUrl(Uri.parse(ConstRes.getImageUrl(mList[index].postVideo)));
 
       /// Add to [controllers] list
       controllers[index] = controller;

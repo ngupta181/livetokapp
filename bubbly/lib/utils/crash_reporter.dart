@@ -47,6 +47,29 @@ class CrashReporter {
     }
   }
 
+  /// Log image loading error with additional context
+  static Future<void> logImageError(String imageUrl, dynamic error, StackTrace? stackTrace) async {
+    try {
+      // Add specific image error keys
+      await _crashlytics.setCustomKey('failed_image_url', imageUrl);
+      await _crashlytics.setCustomKey('image_error_type', error.runtimeType.toString());
+      
+      // Add a breadcrumb for the error
+      _crashlytics.log('Image loading failed: $imageUrl');
+      
+      // Record the error as non-fatal
+      await _crashlytics.recordError(
+        'Image loading error: $error',
+        stackTrace,
+        reason: 'Network image failed to load',
+        fatal: false,
+      );
+    } catch (e) {
+      // Failsafe in case Crashlytics itself fails
+      debugPrint('Failed to record image error to Crashlytics: $e');
+    }
+  }
+
   /// Add custom log message as breadcrumb
   static void log(String message) {
     _crashlytics.log(message);

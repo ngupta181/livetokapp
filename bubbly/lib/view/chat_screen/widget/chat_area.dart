@@ -167,11 +167,11 @@ class ChatArea extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
-                  imageUrl: '${ConstRes.itemBaseUrl}${data?.image}',
+                  imageUrl: ConstRes.getImageUrl(data?.image),
                   height: 230,
                   width: MediaQuery.of(context).size.width / 1.70,
                   fit: BoxFit.cover,
-                  cacheKey: '${ConstRes.itemBaseUrl}${data?.image}',
+                  cacheKey: ConstRes.getImageUrl(data?.image),
                   repeat: ImageRepeat.noRepeat,
                   errorWidget: (context, error, stackTrace) {
                     return Image.asset(
@@ -233,8 +233,8 @@ class ChatArea extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(7),
                     child: CachedNetworkImage(
-                      imageUrl: '${ConstRes.itemBaseUrl}${data?.image}',
-                      cacheKey: '${ConstRes.itemBaseUrl}${data?.image}',
+                      imageUrl: ConstRes.getImageUrl(data?.image),
+                      cacheKey: ConstRes.getImageUrl(data?.image),
                       height: 230,
                       width: MediaQuery.of(context).size.width / 1.70,
                       fit: BoxFit.cover,

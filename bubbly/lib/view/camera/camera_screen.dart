@@ -225,9 +225,19 @@ class _CameraScreenState extends State<CameraScreen> {
                                   setState(() {
                                     isRetouchEnabled = !isRetouchEnabled;
                                   });
-                                  await BubblyCamera.toggleRetouch(
-                                    intensity: retouchIntensity,
-                                  );
+                                  try {
+                                    await BubblyCamera.toggleRetouch(
+                                      intensity: retouchIntensity,
+                                    );
+                                  } catch (e) {
+                                    // If toggling retouch fails, revert the UI state
+                                    setState(() {
+                                      isRetouchEnabled = !isRetouchEnabled;
+                                    });
+                                    CommonUI.showToast(
+                                      msg: "Failed to toggle retouch filter. Please try again.",
+                                    );
+                                  }
                                 },
                               ),
                             ),
@@ -953,7 +963,12 @@ class _CameraScreenState extends State<CameraScreen> {
                   setState(() {
                     retouchIntensity = value;
                   });
-                  BubblyCamera.toggleRetouch(intensity: value);
+                  try {
+                    BubblyCamera.toggleRetouch(intensity: value);
+                  } catch (e) {
+                    // Log the error but don't revert the UI as it's just an intensity change
+                    print("Error setting retouch intensity: $e");
+                  }
                 },
                 min: 0.0,
                 max: 1.0,

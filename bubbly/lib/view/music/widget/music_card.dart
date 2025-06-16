@@ -57,7 +57,7 @@ class _MusicCardState extends State<MusicCard> {
                       width: 70,
                       fit: BoxFit.cover,
                       image: NetworkImage(
-                          ConstRes.itemBaseUrl + widget.soundList.soundImage!),
+                          ConstRes.getImageUrl(widget.soundList.soundImage)),
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           height: 70,

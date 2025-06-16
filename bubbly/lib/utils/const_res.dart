@@ -1,9 +1,16 @@
+import 'image_utils.dart';
+
 class ConstRes {
   static final String base = 'https://livetok.app/';
   static const String apiKey = 'Y29tLmxpdmUudG9rLmFwcA==';
   static final String baseUrl = '${base}api/';
 
   static final String itemBaseUrl = 'https://delqviq69zgnh.cloudfront.net/livetok/';
+  
+  // Helper method to safely construct image URLs
+  static String getImageUrl(String? imagePath) {
+    return ImageUtils.getValidImageUrl(itemBaseUrl, imagePath);
+  }
   
   // Agora Credential
   static final String customerId = '33732a1071124385b3b6818e537fe8cf';

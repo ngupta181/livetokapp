@@ -57,7 +57,7 @@ class LiveStreamChatList extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(30),
                       child: Image.network(
-                        '${ConstRes.itemBaseUrl}${commentList[index].userImage}',
+                        ConstRes.getImageUrl(commentList[index].userImage),
                         fit: BoxFit.cover,
                         height: 35,
                         width: 35,
@@ -103,7 +103,7 @@ class LiveStreamChatList extends StatelessWidget {
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
                                       child: Image.network(
-                                        '${ConstRes.itemBaseUrl}${commentList[index].comment}',
+                                        ConstRes.getImageUrl(commentList[index].comment),
                                         width: 40,
                                         height: 40,
                                         fit: BoxFit.cover,

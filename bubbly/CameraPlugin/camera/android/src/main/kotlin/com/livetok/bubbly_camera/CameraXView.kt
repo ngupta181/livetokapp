@@ -314,24 +314,49 @@ internal class CameraXView(
             return
         }
 
-        val bitmap = image.toBitmap()
-        
-        // Detect faces
-        val inputImage = InputImage.fromBitmap(bitmap, image.imageInfo.rotationDegrees)
-        
-        faceDetector.process(inputImage)
-            .addOnSuccessListener { faces ->
-                if (faces.isNotEmpty()) {
-                    // Apply retouch effects
-                    val retouchedBitmap = applyRetouchFilters(bitmap, faces)
-                    
-                    // Update preview with retouched image
-                    updatePreview(retouchedBitmap)
+        try {
+            // Initialize face detector if needed
+            if (!::faceDetector.isInitialized) {
+                setupFaceDetector()
+            }
+
+            val bitmap = image.toBitmap()
+            
+            // Detect faces
+            val inputImage = InputImage.fromBitmap(bitmap, image.imageInfo.rotationDegrees)
+            
+            faceDetector.process(inputImage)
+                .addOnSuccessListener { faces ->
+                    try {
+                        if (faces.isNotEmpty()) {
+                            // Apply retouch effects
+                            val retouchedBitmap = applyRetouchFilters(bitmap, faces)
+                            
+                            // Update preview with retouched image
+                            updatePreview(retouchedBitmap)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error applying retouch filters: ${e.message}")
+                    }
                 }
-            }
-            .addOnCompleteListener {
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Face detection failed: ${e.message}")
+                }
+                .addOnCompleteListener {
+                    try {
+                        image.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error closing image: ${e.message}")
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in applyRetouchEffect: ${e.message}")
+            try {
                 image.close()
+            } catch (e: Exception) {
+                // Ignore
             }
+        }
     }
 
     private fun applyRetouchFilters(originalBitmap: Bitmap, faces: List<Face>): Bitmap {
@@ -485,7 +510,17 @@ internal class CameraXView(
                 isRetouchEnabled = !isRetouchEnabled
                 if (isRetouchEnabled) {
                     retouchIntensity = call.argument<Double>("intensity")?.toFloat() ?: 0.5f
-                    setupRetouchFilters()
+                    
+                    // Initialize required components for retouch
+                    if (!::gpuImage.isInitialized) {
+                        setupGPUImage()
+                    } else {
+                        setupRetouchFilters()
+                    }
+                    
+                    if (!::faceDetector.isInitialized) {
+                        setupFaceDetector()
+                    }
                 }
                 startCamera()
             }

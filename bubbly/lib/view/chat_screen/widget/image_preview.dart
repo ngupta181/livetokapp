@@ -22,7 +22,7 @@ class ImagePreview extends StatelessWidget {
           children: [
             PhotoView(
               imageProvider: NetworkImage(
-                '${ConstRes.itemBaseUrl}${message?.image}',
+                ConstRes.getImageUrl(message?.image),
               ),
               minScale: PhotoViewComputedScale.contained * 1,
               maxScale: PhotoViewComputedScale.covered * 2,

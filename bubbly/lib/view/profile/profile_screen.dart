@@ -161,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(360),
                       child: Image.network(
-                        ConstRes.itemBaseUrl + (userData?.userProfile ?? ''),
+                        ConstRes.getImageUrl(userData?.userProfile),
                         fit: BoxFit.cover,
                         height: 250,
                         width: 250,
