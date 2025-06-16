@@ -1,0 +1,39 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Build and dependency artifacts
+.dart_tool/
+.fvm/
+build/
+android/.gradle/
+android/app/.cxx/
+android/app/release/
+android/gradle/
+android/.kotlin/
+ios/.symlinks/
+ios/Flutter/
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/
+CameraPlugin/camera/.dart_tool/
+CameraPlugin/camera/android/.gradle/
+CameraPlugin/camera/build/
+CameraPlugin/camera/ios/
+CameraPlugin/camera/test/
+
+# IDE and system files
+*.iml
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.keystore
+
+# Output and cache
+pubspec.lock
+*.lock
+*.tmp
+*.swp
+
+# Misc
+*.apk
+*.ipa
+*.aab
