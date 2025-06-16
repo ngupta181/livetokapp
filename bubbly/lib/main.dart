@@ -8,6 +8,7 @@ import 'package:bubbly/utils/colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -30,9 +31,12 @@ import 'package:get/get.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:bubbly/custom_view/force_update_dialog.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 import 'api/api_service.dart';
 import 'services/version_check_service.dart';
+import 'utils/crash_reporter.dart';
 
 SessionManager sessionManager = SessionManager();
 String selectedLanguage = byDefaultLanguage;
@@ -43,6 +47,17 @@ Future<void> main() async {
   await Firebase.initializeApp();
   await FlutterDownloader.initialize(ignoreSsl: true);
   await sessionManager.initPref();
+  
+  // Crashlytics Configuration
+  // Pass all uncaught errors from the framework to Crashlytics
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  
+  // Pass all uncaught asynchronous errors to Crashlytics
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+  
   selectedLanguage =
       sessionManager.giveString(KeyRes.languageCode) ?? byDefaultLanguage;
   runApp(MyApp());
@@ -233,6 +248,12 @@ class _MyBubblyAppState extends State<MyBubblyApp> {
           _sessionManager.getUser()!.data != null) {
         SessionManager.userId = _sessionManager.getUser()!.data!.userId ?? -1;
         SessionManager.accessToken = _sessionManager.getUser()?.data?.token ?? '';
+        
+        // Initialize Crashlytics with user information
+        await CrashReporter.initialize(
+          userId: _sessionManager.getUser()!.data!.userId,
+          userEmail: _sessionManager.getUser()!.data!.userEmail,
+        );
       }
 
       // 3. Fetch settings data with retry mechanism

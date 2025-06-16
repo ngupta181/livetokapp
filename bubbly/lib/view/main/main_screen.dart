@@ -192,6 +192,8 @@ class _MainScreenState extends State<MainScreen> {
     await BubblyCamera.cameraDispose;
   }
   
+
+  
   // Method to handle contact sync based on improved approach
   void _requestContactsPermission() async {
     // Delay slightly to ensure UI is fully loaded

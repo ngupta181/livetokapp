@@ -27,6 +27,7 @@ import 'package:bubbly/modal/user/user.dart';
 import 'package:bubbly/modal/user_video/user_video.dart';
 import 'package:bubbly/modal/wallet/my_wallet.dart';
 import 'package:bubbly/utils/const_res.dart';
+import 'package:bubbly/utils/crash_reporter.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/utils/url_res.dart';
 import 'package:firebase_auth/firebase_auth.dart' as FireBaseAuth1;
@@ -40,18 +41,41 @@ import 'package:bubbly/modal/app_version.dart';
 class ApiService {
   var client = http.Client();
 
-  Future<User> registerUser(HashMap<String, String?> params) async {
-    final response = await client.post(Uri.parse(UrlRes.registerUser),
-        headers: {UrlRes.uniqueKey: ConstRes.apiKey}, body: params);
-    print('PARAMS : $params');
+  /// Safely executes an API call and reports errors to Crashlytics
+  Future<T> _safeApiCall<T>(String endpoint, Future<T> Function() apiCall) async {
+    try {
+      CrashReporter.log('API Call: $endpoint');
+      return await apiCall();
+    } catch (error, stackTrace) {
+      // Log the API error to Crashlytics with endpoint context
+      await CrashReporter.logError(
+        error, 
+        stackTrace,
+        customKeys: {
+          'api_endpoint': endpoint,
+          'user_id': SessionManager.userId.toString(),
+        },
+      );
+      
+      // Rethrow the error after logging
+      rethrow;
+    }
+  }
 
-    final responseJson = jsonDecode(response.body);
-    SessionManager sessionManager = SessionManager();
-    await sessionManager.initPref();
-    sessionManager.saveUser(
-      jsonEncode(User.fromJson(responseJson)),
-    );
-    return User.fromJson(responseJson);
+  Future<User> registerUser(HashMap<String, String?> params) async {
+    return _safeApiCall(UrlRes.registerUser, () async {
+      final response = await client.post(Uri.parse(UrlRes.registerUser),
+          headers: {UrlRes.uniqueKey: ConstRes.apiKey}, body: params);
+      print('PARAMS : $params');
+  
+      final responseJson = jsonDecode(response.body);
+      SessionManager sessionManager = SessionManager();
+      await sessionManager.initPref();
+      sessionManager.saveUser(
+        jsonEncode(User.fromJson(responseJson)),
+      );
+      return User.fromJson(responseJson);
+    });
   }
 
   Future<UserVideo> getUserVideos(
