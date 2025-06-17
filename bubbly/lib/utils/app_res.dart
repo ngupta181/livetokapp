@@ -13,9 +13,9 @@ class AppRes {
 
   static String redeemTitle(String value) {
     if (value == "0.000" || value == "0.00") {
-      return '1000 Coins = 0.001 USD';
+      return '1 Coin = 0.0028 USD';
     }
-    return '1000 Coins = $value USD';
+    return '1 Coin = $value USD';
   }
 
   static String whatReport(int type) {

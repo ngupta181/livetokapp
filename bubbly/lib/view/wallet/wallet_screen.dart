@@ -158,7 +158,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       child: Text(
                                         AppRes.redeemTitle(
                                             (settingData?.coinValue ?? 0.0)
-                                                .toStringAsFixed(3)),
+                                                .toStringAsFixed(4)),
                                         style: TextStyle(
                                             fontFamily: FontRes.fNSfUiRegular,
                                             fontSize: 13,

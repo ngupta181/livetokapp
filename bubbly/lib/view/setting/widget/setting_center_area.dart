@@ -298,7 +298,8 @@ class _SettingCenterAreaState extends State<SettingCenterArea> {
 
   void shareLink() async {
     User user = Provider.of<MyLoading>(context, listen: false).getUser!;
-    String shareUrl = '${ConstRes.baseUrl}/profile/${user.data!.userId}';
+    //String shareUrl = '${ConstRes.baseUrl}/profile/${user.data!.userId}';
+    String shareUrl = '${ConstRes.base}';
     Share.share(
       AppRes.checkOutThisAmazingProfile(shareUrl),
       subject: '${AppRes.look} ${user.data!.userName}',
