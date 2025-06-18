@@ -103,6 +103,10 @@ class UrlRes {
   static final String getMyWalletCoin =
       ConstRes.baseUrl + 'Wallet/getMyWalletCoin';
 
+  ///getTransactionHistory
+  static final String getTransactionHistory =
+      ConstRes.baseUrl + 'Wallet/getTransactionHistory';
+
   ///redeemRequest
   static final String redeemRequest = ConstRes.baseUrl + 'Wallet/redeemRequest';
   static final String amount = 'amount';

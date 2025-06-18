@@ -13,6 +13,7 @@ use DB;
 use App\Admin;
 use App\RedeemRequest;
 use App\User;
+use App\Transaction;
 
 class RedeemRequestController extends Controller
 {
@@ -27,7 +28,30 @@ class RedeemRequestController extends Controller
     public function changeRedeemRequestStatus(Request $request){
 		$redeem_request_id = $request->input('redeem_request_id');
 
-		$result =  RedeemRequest::where('redeem_request_id',$redeem_request_id)->update(['status'=>1]);
+        // Get the redeem request details first to find the related transaction
+        $redeemRequest = RedeemRequest::where('redeem_request_id', $redeem_request_id)->first();
+        
+        if (!$redeemRequest) {
+            $response['success'] = 0;
+            $response['message'] = 'Redeem request not found';
+            echo json_encode($response);
+            return;
+        }
+        
+		$result = RedeemRequest::where('redeem_request_id', $redeem_request_id)->update(['status' => 1]);
+		
+		// Update the corresponding transaction status to "completed"
+		if ($result) {
+		    // Find transaction with matching user_id, amount, and transaction_type=redeem
+		    DB::table('tbl_transactions')
+		        ->where('user_id', $redeemRequest->user_id)
+		        ->where('transaction_type', 'redeem')
+		        ->where('amount', $redeemRequest->amount)
+		        ->where('coins', $redeemRequest->coins)
+		        ->where('status', 'pending')
+		        ->update(['status' => 'completed']);
+		}
+		
 		$total_pending_request = RedeemRequest::where('status',0)->count();
         $total_confirm_request = RedeemRequest::where('status',1)->count();
 		if ($result) {

@@ -25,17 +25,84 @@ class RedeemScreen extends StatefulWidget {
 
 class _RedeemScreenState extends State<RedeemScreen> {
   MyWalletData? _myWalletData;
-  String noOfRedeemCoin = '';
   String selectMethod = 'Paypal';
   String account = '';
   SessionManager sessionManager = SessionManager();
   SettingData? settingData;
+  
+  // Controllers for the withdrawal amount
+  final TextEditingController _coinsController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  
+  // Amount variables
+  int withdrawCoins = 0;
+  double withdrawAmount = 0.0;
 
   @override
   void initState() {
     prefData();
     getMyWalletData();
+    
+    // Add listeners to update the corresponding field when one changes
+    _coinsController.addListener(_updateAmountFromCoins);
+    _amountController.addListener(_updateCoinsFromAmount);
+    
     super.initState();
+  }
+  
+  @override
+  void dispose() {
+    _coinsController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+  
+  // Update USD amount when coins change
+  void _updateAmountFromCoins() {
+    if (_coinsController.text.isEmpty) {
+      _amountController.text = '';
+      withdrawAmount = 0.0;
+      withdrawCoins = 0;
+      return;
+    }
+    
+    try {
+      withdrawCoins = int.parse(_coinsController.text);
+      withdrawAmount = (withdrawCoins * (settingData?.coinValue ?? 0));
+      
+      // Update amount field without triggering its listener
+      _amountController.removeListener(_updateCoinsFromAmount);
+      _amountController.text = withdrawAmount.toStringAsFixed(2);
+      _amountController.addListener(_updateCoinsFromAmount);
+      
+      setState(() {});
+    } catch (e) {
+      print('Error converting coins to amount: $e');
+    }
+  }
+  
+  // Update coins when USD amount changes
+  void _updateCoinsFromAmount() {
+    if (_amountController.text.isEmpty) {
+      _coinsController.text = '';
+      withdrawAmount = 0.0;
+      withdrawCoins = 0;
+      return;
+    }
+    
+    try {
+      withdrawAmount = double.parse(_amountController.text);
+      withdrawCoins = ((withdrawAmount) / (settingData?.coinValue ?? 0.001)).round();
+      print('withdrawCoins: $withdrawCoins');   
+      // Update coins field without triggering its listener
+      _coinsController.removeListener(_updateAmountFromCoins);
+      _coinsController.text = withdrawCoins.toString();
+      _coinsController.addListener(_updateAmountFromCoins);
+      
+      setState(() {});
+    } catch (e) {
+      print('Error converting amount to coins: $e');
+    }
   }
 
   @override
@@ -44,7 +111,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
       builder: (context, myLoading, child) => Scaffold(
         body: Column(
           children: [
-            AppBarCustom(title: LKey.requestRedeem.tr),
+            AppBarCustom(title: LKey.withdraw.tr),
             Expanded(
               child: SingleChildScrollView(
                 physics: BouncingScrollPhysics(),
@@ -104,7 +171,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  '$appName ${LKey.youHave.tr}',
+                                  '${LKey.coins.tr} ${LKey.youHave.tr}',
                                   style: TextStyle(
                                       fontSize: 15,
                                       fontFamily: FontRes.fNSfUiMedium,
@@ -128,6 +195,72 @@ class _RedeemScreenState extends State<RedeemScreen> {
                       ),
                       SizedBox(
                         height: 30,
+                      ),
+                      Text(
+                        LKey.enterCoins.tr,
+                        style: TextStyle(
+                          fontSize: 16,
+                        ),
+                      ),
+                      Container(
+                        height: 50,
+                        margin: EdgeInsets.symmetric(vertical: 10),
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                          color: myLoading.isDark
+                              ? ColorRes.colorPrimary
+                              : ColorRes.greyShade100,
+                        ),
+                        child: TextField(
+                          controller: _coinsController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: LKey.enterCoinsToWithdraw.tr,
+                            hintStyle: TextStyle(
+                              color: ColorRes.colorTextLight,
+                            ),
+                            suffixText: 'Coins',
+                          ),
+                          style: TextStyle(
+                            color: ColorRes.colorTextLight,
+                          ),
+                          cursorColor: ColorRes.colorTextLight,
+                        ),
+                      ),
+                      Text(
+                        LKey.amountUsd.tr,
+                        style: TextStyle(
+                          fontSize: 16,
+                        ),
+                      ),
+                      Container(
+                        height: 50,
+                        margin: EdgeInsets.symmetric(vertical: 10),
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                          color: myLoading.isDark
+                              ? ColorRes.colorPrimary
+                              : ColorRes.greyShade100,
+                        ),
+                        child: TextField(
+                          controller: _amountController,
+                          keyboardType: TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: LKey.amountInUsd.tr,
+                            hintStyle: TextStyle(
+                              color: ColorRes.colorTextLight,
+                            ),
+                            prefixText: '\$ ',
+                          ),
+                          style: TextStyle(
+                            color: ColorRes.colorTextLight,
+                          ),
+                          cursorColor: ColorRes.colorTextLight,
+                        ),
                       ),
                       Text(
                         LKey.selectMethod.tr,
@@ -182,19 +315,26 @@ class _RedeemScreenState extends State<RedeemScreen> {
                       ),
                       InkWell(
                         onTap: () {
-                          if (selectMethod.isEmpty) {
+                          if (withdrawCoins <= 0) {
+                            CommonUI.showToast(
+                                msg: LKey.pleaseEnterValidAmount.tr);
+                          } else if (withdrawCoins > (_myWalletData?.myWallet ?? 0)) {
+                            CommonUI.showToast(
+                                msg: LKey.insufficientCoins.tr);
+                          } else if (selectMethod.isEmpty) {
                             CommonUI.showToast(
                                 msg: LKey.pleaseSelectPaymentMethod.tr);
                           } else if (account.isEmpty) {
                             CommonUI.showToast(msg: LKey.pleaseEnterAccount.tr);
                           } else {
-                            double amount = ((_myWalletData?.myWallet ?? 0) *
-                                    (settingData?.coinValue ?? 0)) /
-                                1000;
                             CommonUI.showLoader(context);
                             ApiService()
-                                .redeemRequest(amount.toString(), selectMethod,
-                                    account, noOfRedeemCoin)
+                                .redeemRequest(
+                                  withdrawAmount.toString(), 
+                                  selectMethod,
+                                  account, 
+                                  withdrawCoins.toString()
+                                )
                                 .then((value) {
                               if (value.status == 200) {
                                 Navigator.pop(context);
@@ -220,7 +360,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                LKey.redeem.tr.toUpperCase(),
+                                LKey.withdraw.tr.toUpperCase(),
                                 style: TextStyle(
                                     fontFamily: FontRes.fNSfUiMedium,
                                     letterSpacing: 1,

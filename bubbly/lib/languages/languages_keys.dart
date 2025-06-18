@@ -291,4 +291,30 @@ class LKey {
       'pleaseAcceptLibraryPermissionToPickAVideo';
   static const shareThisVideo = 'shareThisVideo';
   static const videoDownloadingStarted = 'videoDownloadingStarted';
+  
+  // Transaction History
+  static const transactionHistory = "transactionHistory";
+  static const buyCoins = "buyCoins";
+  static const giftSent = "giftSent";
+  static const giftReceived = "giftReceived";
+  static const purchasedCoins = "purchasedCoins";
+  static const payout = "payout";
+  static const rewardEarned = "rewardEarned";
+  static const transfer = "transfer";
+  static const via = "via";
+  static const completed = "completed";
+  static const pending = "pending";
+  
+  // Wallet Screen
+  static const myWallet = 'myWallet';
+  static const recharge = 'recharge';
+  
+  // Redeem/Withdraw Screen
+  static const withdraw = 'withdraw';
+  static const enterCoins = 'enterCoins';
+  static const enterCoinsToWithdraw = 'enterCoinsToWithdraw';
+  static const amountUsd = 'amountUsd';
+  static const amountInUsd = 'amountInUsd';
+  static const pleaseEnterValidAmount = 'pleaseEnterValidAmount';
+  static const insufficientCoins = 'insufficientCoins';
 }

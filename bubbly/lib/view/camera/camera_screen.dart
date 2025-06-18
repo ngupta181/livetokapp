@@ -20,7 +20,7 @@ import 'package:bubbly/view/dialog/confirmation_dialog.dart';
 import 'package:bubbly/view/music/music_screen.dart';
 import 'package:bubbly/view/preview_screen.dart';
 import 'package:bubbly_camera/bubbly_camera.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';

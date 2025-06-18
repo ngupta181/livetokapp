@@ -7,10 +7,14 @@ import 'dart:math' as math;
 
 import 'package:bubbly/modal/agora/agora.dart';
 import 'package:bubbly/modal/agora/agora_token.dart';
+import 'package:bubbly/modal/app_version.dart';
+import 'package:bubbly/modal/chat/chat.dart';
 import 'package:bubbly/modal/comment/comment.dart';
 import 'package:bubbly/modal/explore/explore_hash_tag.dart';
 import 'package:bubbly/modal/file_path/file_path.dart';
 import 'package:bubbly/modal/followers/follower_following_data.dart';
+import 'package:bubbly/modal/hashtag/hash_tag_video.dart';
+import 'package:bubbly/modal/live_stream/live_stream.dart';
 import 'package:bubbly/modal/notification/notification.dart';
 import 'package:bubbly/modal/nudity/nudity_checker.dart';
 import 'package:bubbly/modal/nudity/nudity_media_id.dart';
@@ -19,6 +23,7 @@ import 'package:bubbly/modal/profileCategory/profile_category.dart';
 import 'package:bubbly/modal/rest/rest_response.dart';
 import 'package:bubbly/modal/search/search_user.dart';
 import 'package:bubbly/modal/setting/setting.dart';
+import 'package:bubbly/modal/shareable_link.dart';
 import 'package:bubbly/modal/single/single_post.dart';
 import 'package:bubbly/modal/sound/fav/favourite_music.dart';
 import 'package:bubbly/modal/sound/sound.dart';
@@ -26,17 +31,19 @@ import 'package:bubbly/modal/status.dart';
 import 'package:bubbly/modal/user/user.dart';
 import 'package:bubbly/modal/user_video/user_video.dart';
 import 'package:bubbly/modal/wallet/my_wallet.dart';
+import 'package:bubbly/modal/wallet/transaction_history.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/crash_reporter.dart';
+import 'package:bubbly/utils/key_res.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/utils/url_res.dart';
-import 'package:firebase_auth/firebase_auth.dart' as FireBaseAuth1;
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:csv/csv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bubbly/modal/shareable_link.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart' as FireBaseAuth1;
 import 'package:path_provider/path_provider.dart';
-import 'package:bubbly/modal/app_version.dart';
 
 class ApiService {
   var client = http.Client();
@@ -496,58 +503,28 @@ class ApiService {
     return UserVideo.fromJson(responseJson);
   }
 
-  Future<RestResponse> sendCoin(String coin, String toUserId) async {
-    try {
-      final response = await client.post(
-        Uri.parse(UrlRes.sendCoin),
-        body: {
-          UrlRes.coin: coin,
-          UrlRes.toUserId: toUserId,
-        },
-        headers: {
-          UrlRes.uniqueKey: ConstRes.apiKey,
-          UrlRes.authorization: SessionManager.accessToken,
-        },
-      );
-
-      // First, try to update the user profile regardless of response status
-      // This helps us confirm if the transaction was successful
-      try {
-        await getProfile(SessionManager.userId.toString());
-      } catch (e) {
-        // If we can't get the profile, continue with normal error handling
-      }
-
-      // Check if response is valid JSON
-      try {
-        final responseJson = jsonDecode(response.body);
-        return RestResponse.fromJson(responseJson);
-      } catch (e) {
-        // If response is not valid JSON (like HTML), check the status code
-
-        // HTTP 500 errors from this endpoint often occur even when coins are successfully sent
-        // If the status code is 500, treat it as a success since we've updated the profile
-        if (response.statusCode == 500) {
-          return RestResponse(
-            status: 200, // Force success status
-            message: "Coins sent successfully!",
-          );
-        }
-
-        // For other status codes, return appropriate error
-        return RestResponse(
-          status: response.statusCode,
-          message:
-              "Server returned invalid response format. Please try again later.",
-        );
-      }
-    } catch (e) {
-      // Handle network or other exceptions
-      return RestResponse(
-        status: 500,
-        message: "Connection error. Please check your internet connection.",
-      );
+  Future<RestResponse> sendCoin(String coin, String toUserId, {String? giftId}) async {
+    client = http.Client();
+    final body = {
+      UrlRes.toUserId: toUserId,
+      UrlRes.coin: coin,
+    };
+    
+    if (giftId != null) {
+      body['gift_id'] = giftId;
     }
+    
+    final response = await client.post(
+      Uri.parse(UrlRes.sendCoin),
+      body: body,
+      headers: {
+        UrlRes.uniqueKey: ConstRes.apiKey,
+        UrlRes.authorization: SessionManager.accessToken,
+      },
+    );
+    final responseJson = jsonDecode(response.body);
+    await getProfile(SessionManager.userId.toString());
+    return RestResponse.fromJson(responseJson);
   }
 
   Future<ExploreHashTag> getExploreHashTag(String start, String limit) async {
@@ -1171,17 +1148,33 @@ class ApiService {
     return CoinPlans.fromJson(responseJson);
   }
 
-  Future<RestResponse> purchaseCoin(int coin) async {
-    // print(SessionManager.accessToken + coin);
+  Future<RestResponse> purchaseCoin(int coin, {String? transactionReference, double? amount, String? paymentMethod}) async {
+    final body = {
+      UrlRes.coin: '$coin',
+    };
+    
+    if (transactionReference != null) {
+      body['transaction_reference'] = transactionReference;
+    }
+    
+    if (amount != null) {
+      body['amount'] = '$amount';
+    }
+    
+    if (paymentMethod != null) {
+      body['payment_method'] = paymentMethod;
+    }
+    
+    body['platform'] = Platform.isIOS ? 'ios' : 'android';
+    
     final response = await client.post(
       Uri.parse(UrlRes.purchaseCoin),
-      body: {UrlRes.coin: '$coin'},
+      body: body,
       headers: {
         UrlRes.uniqueKey: ConstRes.apiKey,
         UrlRes.authorization: SessionManager.accessToken,
       },
     );
-    // print(response.body);
     final responseJson = jsonDecode(response.body);
     await getProfile(SessionManager.userId.toString());
     return RestResponse.fromJson(responseJson);
@@ -1507,5 +1500,29 @@ class ApiService {
       print('⚡ Error fetching app version: $e');
       throw e;
     }
+  }
+
+  Future<TransactionHistory> getTransactionHistory({String? transactionType, int limit = 20, int offset = 0}) async {
+    client = http.Client();
+    final Map<String, String> body = {
+      'limit': limit.toString(),
+      'offset': offset.toString(),
+    };
+    
+    if (transactionType != null) {
+      body['transaction_type'] = transactionType;
+    }
+    
+    final response = await client.post(
+      Uri.parse(UrlRes.getTransactionHistory),
+      body: body,
+      headers: {
+        UrlRes.uniqueKey: ConstRes.apiKey,
+        UrlRes.authorization: SessionManager.accessToken,
+      },
+    );
+    
+    final responseJson = jsonDecode(response.body);
+    return TransactionHistory.fromJson(responseJson);
   }
 }

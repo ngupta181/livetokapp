@@ -22,6 +22,7 @@ use App\GlobalSettings;
 use App\RewardingAction;
 use App\Notification;
 use App\RedeemRequest;
+use App\Transaction;
 
 class WalletController extends Controller
 {
@@ -65,6 +66,15 @@ class WalletController extends Controller
         $wallet_update = User::where('user_id', $user_id)->increment('my_wallet', $coin);
 
         if ($wallet_update) {
+            // Record transaction
+            Transaction::create([
+                'user_id' => $user_id,
+                'transaction_type' => 'reward',
+                'coins' => $coin,
+                'status' => 'completed',
+                'meta_data' => json_encode(['rewarding_action_id' => $rewarding_action_id])
+            ]);
+            
             return response()->json(['status' => 200, 'message' => "Coin Added Successfully."]);
         } else {
             return response()->json(['status' => 401, 'message' => "Error While Add Coin."]);
@@ -73,8 +83,6 @@ class WalletController extends Controller
 
     public function sendCoin(Request $request)
     {
-
-
         $user_id = $request->user()->user_id;
         $full_name = $request->user()->full_name;
 
@@ -106,6 +114,7 @@ class WalletController extends Controller
         }
         $to_user_id = $request->get('to_user_id');
         $coin = $request->get('coin');
+        $gift_id = $request->get('gift_id'); // Optional gift ID if this is a gift transaction
 
         $userData =  User::select('my_wallet')->where('user_id', $user_id)->first();
         $wallet = $userData['my_wallet'];
@@ -113,6 +122,16 @@ class WalletController extends Controller
         if ($wallet >= $coin) {
             $count_update = User::where('user_id', $user_id)->where('my_wallet', '>', $coin)->decrement('my_wallet', $coin);
             $wallet_update = User::where('user_id', $to_user_id)->increment('my_wallet', $coin);
+
+            // Record the gift transaction
+            Transaction::create([
+                'user_id' => $user_id,
+                'to_user_id' => $to_user_id,
+                'transaction_type' => !empty($gift_id) ? 'gift' : 'transfer',
+                'coins' => $coin,
+                'gift_id' => $gift_id,
+                'status' => 'completed'
+            ]);
 
             $noti_user_id = $to_user_id;
 
@@ -132,7 +151,7 @@ class WalletController extends Controller
             Notification::insert($notificationdata);
             $notification_title = "LiveTok";
             if($userData->is_notification == 1 ){
-            Common::send_push($device_token, $notification_title, $message, $platform);
+                Common::send_push($device_token, $notification_title, $message, $platform);
             }
             return response()->json(['status' => 200, 'message' => "Coin Send Successfully."]);
         } else {
@@ -142,8 +161,6 @@ class WalletController extends Controller
 
     public function purchaseCoin(Request $request)
     {
-
-
         $user_id = $request->user()->user_id;
         $full_name = $request->user()->full_name;
 
@@ -174,15 +191,30 @@ class WalletController extends Controller
         }
 
         $coin = $request->get('coin');
+        $amount = $request->get('amount', 0);
+        $payment_method = $request->get('payment_method', 'in_app_purchase');
+        $transaction_reference = $request->get('transaction_reference');
+        $platform = $request->get('platform', 'unknown');
+        
         $wallet_update = User::where('user_id', $user_id)->increment('my_wallet', $coin);
+        
+        // Record the purchase transaction
+        Transaction::create([
+            'user_id' => $user_id,
+            'transaction_type' => 'purchase',
+            'coins' => $coin,
+            'amount' => $amount,
+            'payment_method' => $payment_method,
+            'transaction_reference' => $transaction_reference,
+            'platform' => $platform,
+            'status' => 'completed'
+        ]);
 
         return response()->json(['status' => 200, 'message' => "Coin Purchased Successfully."]);
     }
 
     public function getMyWalletCoin(Request $request)
     {
-
-
         $user_id = $request->user()->user_id;
 
         if (empty($user_id)) {
@@ -199,9 +231,33 @@ class WalletController extends Controller
             exit();
         }
 
-        $data = User::select('my_wallet')->where('user_id', $user_id)->first();
-
-        $data['my_wallet'] = $data->my_wallet ? (int)$data->my_wallet : 0;
+        $user = User::select('my_wallet')->where('user_id', $user_id)->first();
+        
+        // Get transaction stats
+        $stats = DB::table('tbl_transactions')
+            ->select(
+                DB::raw('SUM(CASE WHEN transaction_type = "purchase" THEN coins ELSE 0 END) as purchased'),
+                DB::raw('SUM(CASE WHEN transaction_type = "reward" THEN coins ELSE 0 END) as upload_video'),
+                DB::raw('SUM(CASE WHEN transaction_type = "reward" AND meta_data LIKE "%check_in%" THEN coins ELSE 0 END) as check_in'),
+                DB::raw('SUM(CASE WHEN transaction_type = "gift" AND to_user_id = '.$user_id.' THEN coins ELSE 0 END) as from_fans'),
+                DB::raw('SUM(CASE WHEN user_id = '.$user_id.' AND transaction_type IN ("gift", "transfer") THEN coins ELSE 0 END) as total_send'),
+                DB::raw('SUM(CASE WHEN to_user_id = '.$user_id.' AND transaction_type IN ("gift", "transfer") THEN coins ELSE 0 END) as total_received')
+            )
+            ->where(function($query) use ($user_id) {
+                $query->where('user_id', $user_id)
+                      ->orWhere('to_user_id', $user_id);
+            })
+            ->first();
+        
+        $data = [
+            'my_wallet' => $user->my_wallet ? (int)$user->my_wallet : 0,
+            'total_send' => (int)($stats->total_send ?? 0),
+            'total_received' => (int)($stats->total_received ?? 0),
+            'from_fans' => (int)($stats->from_fans ?? 0),
+            'purchased' => (int)($stats->purchased ?? 0),
+            'upload_video' => (int)($stats->upload_video ?? 0),
+            'check_in' => (int)($stats->check_in ?? 0),
+        ];
 
         if (!empty($data)) {
             return response()->json(['status' => 200, 'message' => "My Wallet Data Get Successfully.", 'data' => $data]);
@@ -210,10 +266,53 @@ class WalletController extends Controller
         }
     }
 
+    public function getTransactionHistory(Request $request)
+    {
+        $user_id = $request->user()->user_id;
+
+        if (empty($user_id)) {
+            $msg = "user id is required";
+            return response()->json(['success_code' => 401, 'response_code' => 0, 'response_message' => $msg]);
+        }
+
+        $headers = $request->headers->all();
+        $verify_request_base = Admin::verify_request_base($headers);
+
+        if (isset($verify_request_base['status']) && $verify_request_base['status'] == 401) {
+            return response()->json(['success_code' => 401, 'message' => "Unauthorized Access!"]);
+            exit();
+        }
+
+        $transaction_type = $request->get('transaction_type'); // Optional filter
+        $limit = $request->get('limit', 20);
+        $offset = $request->get('offset', 0);
+        
+        $query = Transaction::with(['user:user_id,user_name,full_name,user_profile', 'recipient:user_id,user_name,full_name,user_profile'])
+            ->where(function($q) use ($user_id) {
+                $q->where('user_id', $user_id)
+                  ->orWhere('to_user_id', $user_id);
+            });
+            
+        if (!empty($transaction_type)) {
+            $query->where('transaction_type', $transaction_type);
+        }
+        
+        $total = $query->count();
+        $transactions = $query->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+            
+        return response()->json([
+            'status' => 200, 
+            'message' => "Transaction History Retrieved Successfully.",
+            'total' => $total,
+            'data' => $transactions
+        ]);
+    }
+
     public function getCoinPlanList(Request $request)
     {
-
-
         $user_id = $request->user()->user_id;
 
         if (empty($user_id)) {
@@ -241,8 +340,6 @@ class WalletController extends Controller
 
     public function redeemRequest(Request $request)
     {
-
-
         $user_id = $request->user()->user_id;
         $full_name = $request->user()->full_name;
 
@@ -273,16 +370,44 @@ class WalletController extends Controller
             $msg = $messages[0];
             return response()->json(['status' => 401, 'message' => $msg]);
         }
+        
         $coin = $request->get('coin') ? $request->get('coin') : 0;
         $amount = $request->get('amount');
         $redeem_request_type = $request->get('redeem_request_type');
         $account = $request->get('account');
+        
+        // Check if user has enough coins
+        $user = User::select('my_wallet')->where('user_id', $user_id)->first();
+        if (!$user || $user->my_wallet < $coin) {
+            return response()->json(['status' => 401, 'message' => "Insufficient coins in your wallet."]);
+        }
 
-        $data = array('redeem_request_type' => $redeem_request_type, 'account' => $account, 'amount' => $amount, 'user_id' => $user_id);
+        // Create redeem request with reference to transaction
+        $data = array(
+            'redeem_request_type' => $redeem_request_type, 
+            'account' => $account, 
+            'amount' => $amount, 
+            'user_id' => $user_id,
+            'coins' => $coin,
+            'status' => 0 // 0 = pending
+        );
         $insert = RedeemRequest::insert($data);
 
+        // Record the redeem transaction
+        $transaction = Transaction::create([
+            'user_id' => $user_id,
+            'transaction_type' => 'redeem',
+            'coins' => $coin,
+            'amount' => $amount,
+            'payment_method' => $redeem_request_type,
+            'status' => 'pending',
+            'meta_data' => json_encode(['account' => $account])
+        ]);
+
+        // Deduct only the withdrawal amount from wallet instead of setting to zero
+        $remainingCoins = $user->my_wallet - $coin;
         $update_data = array(
-            'my_wallet' => 0,
+            'my_wallet' => $remainingCoins,
         );
 
         $count_update = User::where('user_id', $user_id)->update($update_data);

@@ -182,7 +182,14 @@ class _DialogCoinsPlanState extends State<DialogCoinsPlan> {
               return e.playstoreProductId == element.productID;
             }
           });
-          ApiService().purchaseCoin(coinPlanData.coinAmount ?? 0).then(
+          
+          // Add additional transaction details for tracking
+          ApiService().purchaseCoin(
+            coinPlanData.coinAmount ?? 0,
+            transactionReference: element.purchaseID,
+            amount: double.parse(coinPlanData.coinPlanPrice ?? '0'),
+            paymentMethod: Platform.isIOS ? 'App Store' : 'Google Play'
+          ).then(
             (value) {
               Navigator.pop(context);
               Navigator.pop(context);

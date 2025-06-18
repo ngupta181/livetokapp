@@ -13,6 +13,7 @@ import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/view/redeem/redeem_screen.dart';
 import 'package:bubbly/view/wallet/dialog_coins_plan.dart';
+import 'package:bubbly/view/wallet/transaction_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -43,11 +44,11 @@ class _WalletScreenState extends State<WalletScreen> {
       return Scaffold(
         body: Column(
           children: [
-            AppBarCustom(title: LKey.wallet.tr),
-            Expanded(
-              child: isLoading
-                  ? LoaderDialog()
-                  : SingleChildScrollView(
+            AppBarCustom(title: LKey.myWallet.tr),
+            isLoading
+                ? Expanded(child: Center(child: CircularProgressIndicator()))
+                : Expanded(
+                    child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -124,10 +125,14 @@ class _WalletScreenState extends State<WalletScreen> {
                                     ),
                                     InkWell(
                                       onTap: () {
-                                        Get.bottomSheet(DialogCoinsPlan())
-                                            .then((value) {
-                                          getMyWalletData();
-                                        });
+                                        showModalBottomSheet(
+                                          context: context,
+                                          backgroundColor: Colors.transparent,
+                                          isScrollControlled: true,
+                                          builder: (BuildContext context) {
+                                            return DialogCoinsPlan();
+                                          },
+                                        );
                                       },
                                       child: Container(
                                         padding: EdgeInsets.symmetric(
@@ -231,49 +236,98 @@ class _WalletScreenState extends State<WalletScreen> {
                             endIndent: 15,
                             indent: 15,
                           ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                            child: _buildActionButton(
+                              context,
+                              icon: Icons.history,
+                              label: LKey.transactionHistory.tr,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TransactionHistoryScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              if ((_myWalletData?.myWallet ?? 0) <=
+                                  (settingData?.minRedeemCoins ?? 0)) {
+                                CommonUI.showToast(msg: LKey.insufficientBalance.tr);
+                                CommonUI.showToast(msg: LKey.insufficientBalance.tr);
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => RedeemScreen()),
+                                ).then((value) {
+                                  getMyWalletData();
+                                });
+                              }
+                            },
+                            child: Container(
+                              height: 54,
+                              margin: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                gradient: LinearGradient(
+                                  colors: [ColorRes.colorTheme, ColorRes.colorPink],
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  LKey.withdraw.tr.toUpperCase(),
+                                  style: TextStyle(
+                                      color: ColorRes.white,
+                                      fontSize: 17,
+                                      fontFamily: FontRes.fNSfUiMedium),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-            ),
-            InkWell(
-              onTap: () {
-                if ((_myWalletData?.myWallet ?? 0) <=
-                    (settingData?.minRedeemCoins ?? 0)) {
-                  CommonUI.showToast(msg: LKey.insufficientBalance.tr);
-                  CommonUI.showToast(msg: LKey.insufficientBalance.tr);
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => RedeemScreen()),
-                  ).then((value) {
-                    getMyWalletData();
-                  });
-                }
-              },
-              child: Container(
-                height: 54,
-                margin: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  gradient: LinearGradient(
-                    colors: [ColorRes.colorTheme, ColorRes.colorPink],
                   ),
-                ),
-                child: Center(
-                  child: Text(
-                    LKey.requestRedeem.tr,
-                    style: TextStyle(
-                        color: ColorRes.white,
-                        fontSize: 17,
-                        fontFamily: FontRes.fNSfUiMedium),
-                  ),
-                ),
+                ],
               ),
-            ),
-          ],
-        ),
       );
     });
+  }
+
+  Widget _buildActionButton(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ColorRes.colorPrimary),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: ColorRes.colorPrimary),
+              SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: ColorRes.colorPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void getMyWalletData() {

@@ -64,6 +64,7 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::get('getMyWalletCoin', 'API\WalletController@getMyWalletCoin');
         Route::get('getCoinPlanList', 'API\WalletController@getCoinPlanList');
         Route::post('redeemRequest', 'API\WalletController@redeemRequest');
+        Route::post('getTransactionHistory', 'API\WalletController@getTransactionHistory');
     });
 });
 

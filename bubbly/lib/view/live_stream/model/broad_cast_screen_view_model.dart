@@ -403,10 +403,14 @@ class BroadCastScreenViewModel extends BaseViewModel {
                 .doc(_channelName)
                 .update({FirebaseRes.collectedDiamond: value});
 
-            // Send coins to host - this might fail but we'll try
+            // Send coins to host with gift ID for transaction tracking
             try {
               await ApiService()
-                  .sendCoin('${gifts.coinPrice}', '${liveStreamUser?.userId}')
+                  .sendCoin(
+                    '${gifts.coinPrice}', 
+                    '${liveStreamUser?.userId}',
+                    giftId: '${gifts.id}'
+                  )
                   .then((value) {
                 getProfile();
               });
