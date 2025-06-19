@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:bubbly/api/api_service.dart';
 import 'package:bubbly/custom_view/common_ui.dart';
 import 'package:bubbly/custom_view/data_not_found.dart';
+import 'package:bubbly/custom_view/native_ad_video.dart';
 import 'package:bubbly/languages/languages_keys.dart';
 import 'package:bubbly/modal/user_video/user_video.dart';
 import 'package:bubbly/utils/assert_image.dart';
@@ -10,6 +11,7 @@ import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
+import 'package:bubbly/utils/native_ad_manager.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/utils/url_res.dart';
 import 'package:bubbly/utils/ad_helper.dart';
@@ -17,6 +19,7 @@ import 'package:bubbly/view/home/widget/item_following.dart';
 import 'package:bubbly/view/video/item_video.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -34,7 +37,10 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
   Map<int, VideoPlayerController> controllers = {};
   bool isLoading = false;
   bool _isLoadingFirstTime = true;
-  final AdManager _adManager = AdManager();
+  final NativeAdManager _nativeAdManager = NativeAdManager.instance;
+  
+  // Track video ads so we don't show multiple ads consecutively
+  Map<int, bool> _adPositions = {};
 
   @override
   void initState() {
@@ -44,6 +50,18 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
     }, true);
     super.initState();
   }
+  
+  Future<void> _initializeAds() async {
+    try {
+      await AdHelper.initAds();
+    } catch (e) {
+      print('Error initializing ads: $e');
+      // Continue app flow even if ads fail to initialize
+    }
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
@@ -102,9 +120,84 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
                       onPageChanged: onPageChanged,
                       scrollDirection: Axis.vertical,
                       itemBuilder: (context, index) {
+                        // Check if this position should show an ad
+                        if (_shouldShowAdAtIndex(index)) {
+                          return _buildNativeAdItem(index);
+                        }
+                        
+                        // Regular video item
                         return ItemVideo(videoData: mList[index], videoPlayerController: controllers[index]);
                       },
                     ),
+    );
+  }
+  
+  // Determines if we should show an ad at the current index
+  bool _shouldShowAdAtIndex(int index) {
+    // First few videos should not show ads
+    if (index < 3) return false;
+    
+    // Don't show ads at positions where we've already shown them
+    if (_adPositions.containsKey(index)) return _adPositions[index]!;
+    
+    // Ask the ad manager if we should show an ad
+    final shouldShowAd = _nativeAdManager.shouldShowAdAfterIndex(index);
+    
+    // Remember this decision
+    _adPositions[index] = shouldShowAd;
+    
+    // If we should show an ad, preload it now
+    if (shouldShowAd) {
+      _preloadAdForPosition(index);
+    }
+    
+    return shouldShowAd;
+  }
+  
+  // Preloads a native ad for the given position
+  Future<void> _preloadAdForPosition(int position) async {
+    // Only preload if this is actually an ad position
+    if (_adPositions[position] != true) return;
+    
+    // NativeAdManager handles the actual loading (use isGridView=false for full-screen video ads)
+    await _nativeAdManager.preloadNativeAd(position, isGridView: false);
+    
+    // Force rebuild if the widget is still mounted
+    if (mounted) setState(() {});
+  }
+  
+  // Builds a native ad item for the video feed
+  Widget _buildNativeAdItem(int index) {
+    return FutureBuilder<NativeAd?>(
+      future: _nativeAdManager.preloadNativeAd(index, isGridView: false),
+      builder: (context, snapshot) {
+        final nativeAd = snapshot.data;
+        
+        // If ad is still loading or failed to load, show a placeholder
+        if (nativeAd == null) {
+          return Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(ColorRes.colorTheme),
+            ),
+          );
+        }
+        
+        // Record that we're showing an ad
+        _nativeAdManager.onAdShown();
+        
+        // Return the native ad widget
+        return NativeAdVideo(
+          nativeAd: nativeAd,
+          adPosition: index,
+          onAdClosed: () {
+            // Skip this ad and move to the next content
+            pageController.nextPage(
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          },
+        );
+      },
     );
   }
 
@@ -199,6 +292,11 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
   }
 
   Future _initializeControllerAtIndex(int index) async {
+    // Skip ad positions - they don't need video controllers
+    if (_adPositions.containsKey(index) && _adPositions[index]!) {
+      return;
+    }
+    
     if (mList.length > index && index >= 0) {
       /// Create new controller
       final VideoPlayerController controller =
@@ -207,10 +305,9 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
       /// Add to [controllers] list
       controllers[index] = controller;
 
-      /// Initialize
-      controller.initialize();
+      await controller.initialize();
       if (this.mounted) {
-        print('=======object');
+        /// Initialize
         setState(() {});
       }
 
@@ -219,50 +316,57 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
   }
 
   void _playControllerAtIndex(int index) {
+    // Skip ad positions - they don't need to be played
+    if (_adPositions.containsKey(index) && _adPositions[index]!) {
+      return;
+    }
+    
     focusedIndex = index;
     if (mList.length > index && index >= 0) {
       /// Get controller at [index]
-      final VideoPlayerController? controller = controllers[index];
-
+      final controller = controllers[index];
       if (controller != null) {
         /// Play controller
         controller.play();
         controller.setLooping(true);
-        setState(() {});
-        log('🚀🚀🚀 PLAYING $index');
-        ApiService().increasePostViewCount(mList[index].postId.toString());
       }
     }
   }
 
   void _stopControllerAtIndex(int index) {
+    // Skip ad positions - they don't need to be stopped
+    if (_adPositions.containsKey(index) && _adPositions[index]!) {
+      return;
+    }
+    
     if (mList.length > index && index >= 0) {
       /// Get controller at [index]
-      final VideoPlayerController? controller = controllers[index];
-
+      final controller = controllers[index];
       if (controller != null) {
         /// Pause
         controller.pause();
 
-        /// Reset position to beginning
+        /// Reset postiton to beginning
         controller.seekTo(const Duration());
-        log('==================================');
+
         log('🚀🚀🚀 STOPPED $index');
       }
     }
   }
 
   void _disposeControllerAtIndex(int index) {
+    // Skip ad positions - they don't need to be disposed
+    if (_adPositions.containsKey(index) && _adPositions[index]!) {
+      return;
+    }
+    
     if (mList.length > index && index >= 0) {
       /// Get controller at [index]
-      final VideoPlayerController? controller = controllers[index];
+      final controller = controllers[index];
 
       /// Dispose controller
       controller?.dispose();
-
-      if (controller != null) {
-        controllers.remove(controller);
-      }
+      controllers.remove(index);
 
       log('🚀🚀🚀 DISPOSED $index');
     }
@@ -280,46 +384,45 @@ class _FollowingScreenState extends State<FollowingScreen> with AutomaticKeepAli
   }
 
   void onPageChanged(int value) {
+    // Increment video count for ad tracking
+    _nativeAdManager.incrementVideoCount();
+    
+    // Preload native ad for upcoming positions
+    _preloadFutureAds(value);
+    
     if (value == mList.length - 3) {
       if (!isLoading) {
-        if (!isFollowingDataEmpty) {
-          callApiFollowing((p0) {}, false);
-        } else {
-          callApiForYou(
-            (p0) {},
-          );
-        }
+        callApiFollowing((p0) {}, false);
       }
     }
+    
     if (value > focusedIndex) {
       _playNext(value);
     } else {
       _playPrevious(value);
     }
-    _adManager.incrementVideoCount();
+
     focusedIndex = value;
+  }
+  
+  // Preloads ads for upcoming positions
+  void _preloadFutureAds(int currentIndex) {
+    // Preload ads for the next few positions
+    for (int i = currentIndex + 1; i < currentIndex + 5 && i < mList.length; i++) {
+      if (_nativeAdManager.shouldShowAdAfterIndex(i)) {
+        _adPositions[i] = true;
+        _preloadAdForPosition(i);
+      }
+    }
   }
 
   @override
   void dispose() {
+    _nativeAdManager.dispose();
     pageController.dispose();
-    _adManager.dispose();
     super.dispose();
     controllers.forEach((key, value) async {
       await value.dispose();
     });
-  }
-
-  @override
-  bool get wantKeepAlive => true;
-
-  Future<void> _initializeAds() async {
-    try {
-      await AdHelper.initAds();
-      await _adManager.preloadAds();
-    } catch (e) {
-      print('Error initializing ads: $e');
-      // Continue app flow even if ads fail to initialize
-    }
   }
 }

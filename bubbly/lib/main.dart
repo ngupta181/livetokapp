@@ -5,6 +5,7 @@ import 'package:bubbly/service/ads_service.dart';
 import 'package:bubbly/service/contacts_service.dart';
 import 'package:bubbly/utils/assert_image.dart';
 import 'package:bubbly/utils/colors.dart'; 
+import 'package:bubbly/utils/native_ad_manager.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,6 +38,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'api/api_service.dart';
 import 'services/version_check_service.dart';
 import 'utils/crash_reporter.dart';
+import 'utils/ad_helper.dart';
 
 SessionManager sessionManager = SessionManager();
 String selectedLanguage = byDefaultLanguage;

@@ -9,6 +9,7 @@ import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/key_res.dart';
+import 'package:bubbly/utils/native_ad_manager.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/utils/url_res.dart';
 import 'package:bubbly/view/comment/comment_screen.dart';
@@ -47,7 +48,7 @@ class ItemVideoState extends State<ItemVideo> {
   Timer? _viewDurationTimer;
   bool _hasTrackedView = false;
   bool isPlaying = false;
-  final AdManager _adManager = AdManager();
+  final NativeAdManager _nativeAdManager = NativeAdManager.instance;
   Duration currentPosition = Duration.zero;
   bool isShowingControls = false;
   Timer? _hideControlsTimer;
@@ -77,13 +78,6 @@ class ItemVideoState extends State<ItemVideo> {
     // Track view duration before disposal
     _trackViewDuration();
     
-    // Clean up ad manager
-    try {
-      _adManager.pauseVideoPlayback();
-    } catch (e) {
-      print('Error cleaning up ad manager: $e');
-    }
-    
     // Safely pause the player if it's currently playing
     final wasPlaying = widget.videoPlayerController?.value.isPlaying ?? false;
     if (wasPlaying) {
@@ -97,15 +91,10 @@ class ItemVideoState extends State<ItemVideo> {
   void _videoListener() {
     if (widget.videoPlayerController?.value.isPlaying != isPlaying) {
       isPlaying = widget.videoPlayerController?.value.isPlaying ?? false;
-      try {
-        if (isPlaying) {
-          _adManager.startVideoPlayback();
-        } else {
-          _adManager.pauseVideoPlayback();
-        }
-      } catch (e) {
-        print('Error in video ad manager: $e');
-        // Continue playback even if ad manager fails
+      
+      // Track video count for ad placement if playing
+      if (isPlaying) {
+        _nativeAdManager.incrementVideoCount();
       }
     }
   }

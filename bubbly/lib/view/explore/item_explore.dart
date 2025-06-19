@@ -14,6 +14,9 @@ import 'package:bubbly/view/video/item_video.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:bubbly/utils/native_ad_manager.dart';
+import 'package:bubbly/custom_view/native_ad_video.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Data> videos;
@@ -29,6 +32,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   late PageController _pageController;
   Map<int, VideoPlayerController> controllers = {};
   int focusedIndex = 0;
+  final NativeAdManager _nativeAdManager = NativeAdManager.instance;
+  Map<int, bool> _adPositions = {};
 
   @override
   void initState() {
@@ -36,6 +41,73 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     _pageController = PageController(initialPage: widget.initialIndex);
     focusedIndex = widget.initialIndex;
     _initializePlayer();
+  }
+
+  // Determines if we should show an ad at the current index
+  bool _shouldShowAdAtIndex(int index) {
+    // First few videos should not show ads
+    if (index < 3) return false;
+    
+    // Don't show ads at positions where we've already shown them
+    if (_adPositions.containsKey(index)) return _adPositions[index]!;
+    
+    // Ask the ad manager if we should show an ad
+    final shouldShowAd = _nativeAdManager.shouldShowAdAfterIndex(index);
+    
+    // Remember this decision
+    _adPositions[index] = shouldShowAd;
+    
+    // If we should show an ad, preload it now
+    if (shouldShowAd) {
+      _preloadAdForPosition(index);
+    }
+    
+    return shouldShowAd;
+  }
+  
+  // Preloads a native ad for the given position
+  Future<void> _preloadAdForPosition(int position) async {
+    // Only preload if this is actually an ad position
+    if (_adPositions[position] != true) return;
+    
+    // NativeAdManager handles the actual loading
+    await _nativeAdManager.preloadNativeAd(position, isGridView: false);
+    
+    // Force rebuild if the widget is still mounted
+    if (mounted) setState(() {});
+  }
+  
+  // Builds a native ad item for the video feed
+  Widget _buildNativeAdItem(int index) {
+    return FutureBuilder<NativeAd?>(
+      future: _nativeAdManager.preloadNativeAd(index, isGridView: false),
+      builder: (context, snapshot) {
+        final nativeAd = snapshot.data;
+        
+        if (nativeAd == null) {
+          return Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(ColorRes.colorTheme),
+            ),
+          );
+        }
+        
+        // Record that we're showing an ad
+        _nativeAdManager.onAdShown();
+        
+        return NativeAdVideo(
+          nativeAd: nativeAd,
+          adPosition: index,
+          onAdClosed: () {
+            // Skip this ad and move to the next content
+            _pageController.nextPage(
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          },
+        );
+      },
+    );
   }
 
   void _initializePlayer() async {
@@ -88,6 +160,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   void _onPageChanged(int index) {
+    // Increment video count for ad tracking
+    _nativeAdManager.incrementVideoCount();
+    
+    // Preload native ad for upcoming positions
+    _preloadFutureAds(index);
+
     if (index > focusedIndex) {
       // Going forward
       _stopControllerAtIndex(focusedIndex);
@@ -107,6 +185,17 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
     focusedIndex = index;
   }
+  
+  // Preloads ads for upcoming positions
+  void _preloadFutureAds(int currentIndex) {
+    // Preload ads for the next few positions
+    for (int i = currentIndex + 1; i < currentIndex + 5; i++) {
+      if (_nativeAdManager.shouldShowAdAfterIndex(i)) {
+        _adPositions[i] = true;
+        _preloadAdForPosition(i);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +209,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             onPageChanged: _onPageChanged,
             itemCount: widget.videos.length,
             itemBuilder: (context, index) {
+              // Check if this position should show an ad
+              if (_shouldShowAdAtIndex(index)) {
+                return _buildNativeAdItem(index);
+              }
+              
               return ItemVideo(
                 videoData: widget.videos[index],
                 videoPlayerController: controllers[index],
@@ -155,6 +249,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   @override
   void dispose() {
+    _nativeAdManager.dispose();
     controllers.forEach((_, controller) => controller.dispose());
     _pageController.dispose();
     super.dispose();

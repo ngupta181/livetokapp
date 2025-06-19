@@ -1,8 +1,31 @@
 # LiveTok Flutter App
 
-**Date:** June 18 2025
-
 ## Summary Changelog 
+
+**Date:** June 19 2025
+
+#### Modified Files:
+- `bubbly/android/build.gradle` - Build configuration updates
+- `bubbly/lib/main.dart` - Main application updates
+- `bubbly/lib/modal/setting/setting.dart` - Settings model modifications
+- `bubbly/lib/utils/ad_helper.dart` - Ad helper utility updates
+- `bubbly/lib/view/explore/item_explore.dart` - Explore item UI modifications
+- `bubbly/lib/view/hashtag/videos_by_hashtag.dart` - Hashtag videos screen updates
+- `bubbly/lib/view/home/following_screen.dart` - Following screen modifications
+- `bubbly/lib/view/home/for_u_screen.dart` - For You screen updates
+- `bubbly/lib/view/video/item_video.dart` - Video item component changes
+- `bubbly/pubspec.yaml` - Dependencies and configuration updates
+
+#### New Files:
+- `bubbly/lib/custom_view/native_ad_video.dart` - New native ad video component
+- `bubbly/lib/utils/native_ad_manager.dart` - New native ad management utility
+
+#### Deleted Files:
+- `bubbly/lib/utils/ad_manager.dart` - Removed old ad manager implementation
+
+---------------------------------------------------------------------------------------------------------------
+
+**Date:** June 18 2025
 
 ### Transaction History Feature
 
@@ -28,3 +51,4 @@
 - `bubbly/lib/view/wallet/transaction_history_screen.dart` - Transaction history UI screen
 - `shortzz_backend/app/Transaction.php` - Transaction model for backend
 - `shortzz_backend/database/migrations/2023_09_10_000000_create_transactions_table.php` - Database migration for transactions table
+

@@ -46,6 +46,8 @@ class SettingData {
     String? admobInt,
     String? admobBannerIos,
     String? admobIntIos,
+    String? admobNative,
+    String? admobNativeIos,
     int? maxUploadDaily,
     int? liveMinViewers,
     int? liveTimeout,
@@ -73,6 +75,8 @@ class SettingData {
     _admobInt = admobInt;
     _admobBannerIos = admobBannerIos;
     _admobIntIos = admobIntIos;
+    _admobNative = admobNative;
+    _admobNativeIos = admobNativeIos;
     _maxUploadDaily = maxUploadDaily;
     _liveMinViewers = liveMinViewers;
     _liveTimeout = liveTimeout;
@@ -120,6 +124,8 @@ class SettingData {
     _admobInt = json['admob_int'];
     _admobBannerIos = json['admob_banner_ios'];
     _admobIntIos = json['admob_int_ios'];
+    _admobNative = json['admob_native'];
+    _admobNativeIos = json['admob_native_ios'];
     _maxUploadDaily = json['max_upload_daily'];
     _liveMinViewers = json['live_min_viewers'];
     _liveTimeout = json['live_timeout'];
@@ -152,6 +158,8 @@ class SettingData {
   String? _admobInt;
   String? _admobBannerIos;
   String? _admobIntIos;
+  String? _admobNative;
+  String? _admobNativeIos;
   int? _maxUploadDaily;
   int? _liveMinViewers;
   int? _liveTimeout;
@@ -179,6 +187,8 @@ class SettingData {
   String? get admobInt => _admobInt;
   String? get admobBannerIos => _admobBannerIos;
   String? get admobIntIos => _admobIntIos;
+  String? get admobNative => _admobNative;
+  String? get admobNativeIos => _admobNativeIos;
   int? get maxUploadDaily => _maxUploadDaily;
   int? get liveMinViewers => _liveMinViewers;
   int? get liveTimeout => _liveTimeout;
@@ -208,6 +218,8 @@ class SettingData {
     map['admob_int'] = _admobInt;
     map['admob_banner_ios'] = _admobBannerIos;
     map['admob_int_ios'] = _admobIntIos;
+    map['admob_native'] = _admobNative;
+    map['admob_native_ios'] = _admobNativeIos;
     map['max_upload_daily'] = _maxUploadDaily;
     map['live_min_viewers'] = _liveMinViewers;
     map['live_timeout'] = _liveTimeout;

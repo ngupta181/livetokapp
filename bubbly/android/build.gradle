@@ -1,14 +1,15 @@
-
 ext {
-    flutterFFmpegPackage = "full-gpl"
+    // Remove flutterFFmpegPackage since we're using ffmpeg_kit_flutter_new
 }
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // Add these lines
+        // Maven repositories for ffmpeg_kit_flutter_new
         maven { url "https://jitpack.io" }
         maven { url "https://artifactory.arthenica.dev/artifactory/ffmpeg-kit-maven" }
+        // Explicitly add the arthenica maven repository
+        maven { url 'https://repo.arthenica.com/repository/maven/' }
     }
 }
 
