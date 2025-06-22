@@ -3,9 +3,8 @@
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\API\PostController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AccountController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +20,23 @@ use App\Http\Controllers\AccountController;
 Route::get('/', function () {
     return view('landing'); // This loads resources/views/landing.blade.php
 });
+
+Route::get('/account/remove', [AccountController::class, 'showRemovePage'])->name('account.remove');
+
+
+// Legal and Contact Routes
+Route::get('/privacy-policy', function () {
+    return view('privacy-policy');
+})->name('privacy-policy');
+
+Route::get('/terms-of-service', function () {
+    return view('terms');
+})->name('terms');
+
+Route::get('/contact', function () {
+    return view('contact');
+})->name('contact');
+
 
 Route::get('/v/{shortCode}', [PostController::class, 'resolveShareableLink'])->name('resolve.share.link');
 
@@ -68,18 +84,6 @@ Route::group(array('middleware' => 'checkRole'), function () {
         Route::post('getSoundByID', 'Admin\SoundController@getSoundByID')->name('getSoundByID');
         Route::post('addUpdateSound', 'Admin\SoundController@addUpdateSound')->name('addUpdateSound');
         Route::post('deleteSound', 'Admin\SoundController@deleteSound')->name('deleteSound');
-        
-         // Bulk Import Routes
-        // Route::get('bulk-import', 'Admin\SoundController@viewBulkImport')->name('sound/bulk-import');
-        // Route::post('process-bulk-import', 'Admin\SoundController@processBulkImport')->name('processBulkImport');
-        // Route::get('download-template', 'Admin\SoundController@downloadTemplate')->name('downloadSoundTemplate');
-        
-        
-    // Shazam API Integration Routes
-        Route::get('shazam-sync', 'Admin\SoundController@viewShazamSync')->name('sound/shazam-sync');
-        Route::post('sync-shazam', 'Admin\SoundController@syncShazamMusic')->name('syncShazamMusic');
-        Route::post('test-shazam-api', 'Admin\SoundController@testShazamApiConnection')->name('testShazamApiConnection');
-
     });
     
     Route::prefix('sound_category')->group(function () {
@@ -136,8 +140,8 @@ Route::group(array('middleware' => 'checkRole'), function () {
         Route::post('changeCompressStatus', [SettingsController::class, 'changeCompressStatus'])->name('changeCompressStatus');
         Route::post('changeContentModerationStatus', [SettingsController::class, 'changeContentModerationStatus'])->name('changeContentModerationStatus');
     });
-
-    Route::prefix('rewarding_action')->group(function () {
+    
+   Route::prefix('rewarding_action')->group(function () {
         Route::get('list', 'Admin\RewardingActionController@viewListRewardingAction')->name('rewarding_action/list');
         Route::post('showRewardingActionList', 'Admin\RewardingActionController@showRewardingActionList')->name('showRewardingActionList');
         Route::post('updateRewardingAction', 'Admin\RewardingActionController@updateRewardingAction')->name('updateRewardingAction');
@@ -156,20 +160,3 @@ Route::group(array('middleware' => 'checkRole'), function () {
     Route::post('bulk-video-upload', 'Admin\PostController@bulkVideoUpload')->name('admin.bulk-video-upload.process');
     
 });
-
-// Legal and Contact Routes
-Route::get('/privacy-policy', function () {
-    return view('privacy-policy');
-})->name('privacy-policy');
-
-Route::get('/terms-of-service', function () {
-    return view('terms');
-})->name('terms');
-
-Route::get('/contact', function () {
-    return view('contact');
-})->name('contact');
-
-Route::post('/contact/submit', [ContactController::class, 'submit'])->name('contact.submit');
-
-Route::get('/account/remove', [AccountController::class, 'showRemovePage'])->name('account.remove');

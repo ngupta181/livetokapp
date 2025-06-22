@@ -90,7 +90,7 @@
 
                 <section>
                     <h2 class="text-2xl font-semibold mb-4">9. Contact</h2>
-                    <p class="text-gray-300">For questions about these Terms of Service, please contact us at legal@livetok.com</p>
+                    <p class="text-gray-300">For questions about these Terms of Service, please contact us at contact@livetok.app</p>
                 </section>
             </div>
 

@@ -37,6 +37,7 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
+            //'channels' => ['single'],
             'channels' => ['daily', 'api'],
             'ignore_exceptions' => false,
         ],
@@ -99,7 +100,7 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
-
+        
         'api' => [
             'driver' => 'daily',
             'path' => storage_path('logs/api/api.log'),

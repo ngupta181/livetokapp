@@ -15,12 +15,45 @@ use Illuminate\Support\Facades\Route;
 
     Route::post('login', 'API\UserController@Registration')->name('login');
     Route::get('getVersion','API\AppVersionController@getVersion');
+    Route::get('v/{shortCode}', 'API\PostController@resolveShareableLink');
     Route::prefix('User')->group(function () {
     Route::post('Registration', 'API\UserController@Registration');
     Route::post('getProfile', 'API\UserController@getProfile');
 });
 
+Route::prefix('Post')->group(function () {
+    Route::post('getUserVideos', 'API\PostController@getUserVideos');
+    Route::post('getUserLikesVideos', 'API\PostController@getUserLikesVideos');
+    Route::post('getPostList', 'API\PostController@getPostList');
+    Route::post('getFollowerList', 'API\PostController@getFollowerList');
+    Route::post('getFollowingList', 'API\PostController@getFollowingList');
+    Route::post('getUserSearchPostList', 'API\PostController@getUserSearchPostList');
+    Route::post('getSearchPostList', 'API\PostController@getSearchPostList');
+    Route::post('getExploreHashTagPostList', 'API\PostController@getExploreHashTagPostList');
+    Route::post('getSingleHashTagPostList', 'API\PostController@getSingleHashTagPostList');
+    Route::post('ReportPost', 'API\PostController@ReportPost');
+    Route::post('getPostListById', 'API\PostController@getPostListById');
+    Route::post('getPostBySoundId', 'API\PostController@getPostBySoundId');
+    Route::post('getCommentByPostId', 'API\PostController@getCommentByPostId');
+});
+
+// Route::prefix('Recommendation')->group(function () {
+//     Route::post('getRecommendations', 'API\RecommendationController@getRecommendations');
+// });
+
+Route::prefix('Recommendation')->group(function () {
+    Route::post('getRecommendations', 'API\RecommendationController@getRecommendations');
+    Route::post('trackInteraction', 'API\RecommendationController@trackInteraction'); // Move here temporarily
+});
+
+Route::post('fetchSettingsData', [SettingsController::class, 'fetchSettingsData']);
+
+Route::post('uploadFileGivePath', 'API\PostController@uploadFileGivePath');
+
 Route::group(['middleware' => 'auth:api'], function () {
+    
+    //Route::get('getVersion','API\AppVersionController@getVersion');
+
     Route::prefix('User')->group(function () {
         Route::post('Logout', 'API\UserController@Logout');
         Route::post('updateProfile', 'API\UserController@updateProfile');
@@ -65,37 +98,6 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::get('getCoinPlanList', 'API\WalletController@getCoinPlanList');
         Route::post('redeemRequest', 'API\WalletController@redeemRequest');
         Route::post('getTransactionHistory', 'API\WalletController@getTransactionHistory');
+
     });
 });
-
-Route::prefix('Post')->group(function () {
-    Route::post('getUserVideos', 'API\PostController@getUserVideos');
-    Route::post('getUserLikesVideos', 'API\PostController@getUserLikesVideos');
-    Route::post('getPostList', 'API\PostController@getPostList');
-    Route::post('getFollowerList', 'API\PostController@getFollowerList');
-    Route::post('getFollowingList', 'API\PostController@getFollowingList');
-    Route::post('getUserSearchPostList', 'API\PostController@getUserSearchPostList');
-    Route::post('getSearchPostList', 'API\PostController@getSearchPostList');
-    Route::post('getExploreHashTagPostList', 'API\PostController@getExploreHashTagPostList');
-    Route::post('getSingleHashTagPostList', 'API\PostController@getSingleHashTagPostList');
-    Route::post('ReportPost', 'API\PostController@ReportPost');
-    Route::post('getPostListById', 'API\PostController@getPostListById');
-    Route::post('getPostBySoundId', 'API\PostController@getPostBySoundId');
-    Route::post('getCommentByPostId', 'API\PostController@getCommentByPostId');
-});
-
-// Route::prefix('Recommendation')->group(function () {
-//     Route::post('getRecommendations', 'API\RecommendationController@getRecommendations');
-// });
-
-Route::prefix('Recommendation')->group(function () {
-    Route::post('getRecommendations', 'API\RecommendationController@getRecommendations');
-    Route::post('trackInteraction', 'API\RecommendationController@trackInteraction'); // Move here temporarily
-});
-
-Route::post('fetchSettingsData', [SettingsController::class, 'fetchSettingsData']);
-
-Route::post('uploadFileGivePath', 'API\PostController@uploadFileGivePath');
-
-// Add public route for short URL redirection
-Route::get('v/{shortCode}', 'API\PostController@resolveShareableLink');

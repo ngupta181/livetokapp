@@ -25,10 +25,7 @@
                         <div class="pull-right">
                             <div class="buttons"> 
                                 <button class="btn btn-primary text-light" data-toggle="modal" data-target="#soundModal" data-whatever="@mdo" @if(Session::get('admin_id') == 2){{"disabled"}}@endif>Add Sound</button>
-                                <a href="{{ route('sound/bulk-import') }}" class="btn btn-success text-light ml-2" @if(Session::get('admin_id') == 2){{"disabled"}}@endif>
-                                    <i class="fas fa-file-import"></i> Bulk Import
-                                </a>
-                            </div>
+                        </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-striped" id="sound-listing">

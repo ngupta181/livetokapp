@@ -101,6 +101,18 @@
                                 </div>
                                 <div class="form-row ">
                                     <div class="form-group col-md-4">
+                                        <label for="">Admob Native Ad Unit : Android</label>
+                                        <input type="text" class="form-control" name="admob_native"
+                                            value="{{ $data->admob_native }}">
+                                    </div>
+                                    <div class="form-group col-md-4">
+                                        <label for="">Admob Native Ad Unit : iOS</label>
+                                        <input type="text" class="form-control" name="admob_native_ios"
+                                            value="{{ $data->admob_native_ios }}">
+                                    </div>
+                                </div>
+                                <div class="form-row ">
+                                    <div class="form-group col-md-4">
                                         <label for="">Admob Banner Ad Unit : Android</label>
                                         <input type="text" class="form-control" name="admob_banner"
                                             value="{{ $data->admob_banner }}">
@@ -170,45 +182,7 @@
                                     </div>
 
                                 </div>
-                                
-                                 <div class="mt-4 mb-2">
-                                    <h5 class="text-dark">{{ __('Shazam Music API') }}</h5>
-                                    <span>Configure Shazam API to sync trending music tracks to your library.</span>
-                                </div>
-
-                                <div class="form-row ">
-                                    <div class="form-group col-md-4">
-                                        <label for="">{{ __('API Key') }}</label>
-                                        <input type="password" class="form-control" name="shazam_api_key"
-                                            value="{{ $data->shazam_api_key }}">
-                                        <small class="form-text text-muted">API key from RapidAPI for Shazam</small>
-                                    </div>
-                                    <div class="form-group col-md-4">
-                                        <label for="">{{ __('API Host') }}</label>
-                                        <input type="text" class="form-control" name="shazam_api_host"
-                                            value="{{ $data->shazam_api_host }}" placeholder="shazam.p.rapidapi.com">
-                                        <small class="form-text text-muted">API host from RapidAPI (usually shazam.p.rapidapi.com)</small>
-                                    </div>
-                                    <div class="form-group col-md-4">
-                                        <label for="">{{ __('Tracks Limit') }}</label>
-                                        <input type="number" class="form-control" name="shazam_tracks_limit"
-                                            value="{{ $data->shazam_tracks_limit ?? 50 }}" placeholder="50">
-                                        <small class="form-text text-muted">Maximum number of tracks to sync (default: 50)</small>
-                                    </div>
-                                </div>
-                                <div class="form-row ">
-                                    <div class="form-group col-md-4">
-                                        <label for="">{{ __('Last Sync') }}</label>
-                                        <input type="text" class="form-control" readonly
-                                            value="{{ $data->shazam_last_sync ? date('Y-m-d H:i:s', strtotime($data->shazam_last_sync)) : 'Never' }}">
-                                        <small class="form-text text-muted">Last time tracks were synced from Shazam</small>
-                                    </div>
-                                    <div class="form-group col-md-4">
-                                        <label for="">&nbsp;</label><br>
-                                        <a href="{{ route('sound/shazam-sync') }}" class="btn btn-primary">Manage Shazam Sync</a>
-                                    </div>
-                                </div>
-
+                               
                                 <div class="form-group-submit">
                                     <button @if (Session::get('admin_id') == 2) {{ 'disabled' }} @endif
                                         class="btn btn-primary " type="submit">{{ __('Save') }}</button>

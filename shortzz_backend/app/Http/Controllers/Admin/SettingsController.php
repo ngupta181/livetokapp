@@ -74,7 +74,7 @@ class SettingsController extends Controller
 			$settings->admob_int = $request->admob_int;
 			$settings->admob_int_ios = $request->admob_int_ios;
 			$settings->admob_native = $request->admob_native;
-			$settings->admob_native_ios = $request->admob_native_ios;
+            $settings->admob_native_ios = $request->admob_native_ios;
 			$settings->live_min_viewers = $request->live_min_viewers;
 			$settings->live_timeout = $request->live_timeout;
 			$settings->max_upload_daily = $request->max_upload_daily;

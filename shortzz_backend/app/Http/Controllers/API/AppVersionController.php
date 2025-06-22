@@ -36,11 +36,14 @@ class AppVersionController extends Controller
                 ], 404);
             }
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Version info retrieved successfully',
-                'data' => $version
-            ], 200)->header('Content-Type', 'application/json');
+            return response()->json(['status' => 200, 'message' => 'Version info retrieved successfully','data' => $version]);
+
+
+            // return response()->json([
+            //     'status' => true,
+            //     'message' => 'Version info retrieved successfully',
+            //     'data' => $version
+            // ], 200)->header('Content-Type', 'application/json');
 
         } catch (\Exception $e) {
             Log::error('Error in getVersion: ' . $e->getMessage());

@@ -60,6 +60,9 @@
                 <a href="{{ url('/redeem_request/list') }}" class="nav-link"><i data-feather="share"></i><span>Redeem
                         Request</span></a>
             </li>
+             <li class="dropdown {{ active_class(['rewarding_action/list']) }}">
+                <a href="{{ url('/rewarding_action/list') }}" class="nav-link"><i data-feather="share"></i><span>Rewarding Action</span></a>
+            </li>
             <li class="dropdown {{ active_class(['settings/list']) }}">
                 <a href="{{ url('/settings/list') }}" class="nav-link"><i
                         data-feather="settings"></i><span>Settings</span></a>
@@ -76,11 +79,6 @@
             <li class="dropdown {{ active_class(['viewTerms']) }}">
                 <a href="{{ url('/viewTerms') }}" class="nav-link"><i
                         data-feather="info"></i><span>Terms Of Use</span></a>
-            </li>
-
-            <li class="dropdown {{ active_class(['rewarding_action/list']) }}">
-                <a href="{{ url('/rewarding_action/list') }}" class="nav-link"><i
-                        data-feather="award"></i><span>Rewarding Actions</span></a>
             </li>
 
         </ul>

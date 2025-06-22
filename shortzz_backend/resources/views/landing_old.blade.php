@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,25 +12,25 @@
         
         body {
             font-family: 'Poppins', sans-serif;
-            background: #121212;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             color: #fff;
         }
         
         .gradient-text {
-            background: linear-gradient(90deg, #fe2c55, #25F4EE);
+            background: linear-gradient(90deg, #FF4D4D, #FF9F1C);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
         }
         
         .btn-gradient {
-            background: linear-gradient(90deg, #fe2c55, #25F4EE);
+            background: linear-gradient(90deg, #FF4D4D, #FF9F1C);
             transition: all 0.3s ease;
         }
         
         .btn-gradient:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(254, 44, 85, 0.3);
+            box-shadow: 0 10px 20px rgba(255, 77, 77, 0.3);
         }
         
         .feature-card {
@@ -53,7 +55,7 @@
             width: 300px;
             height: 300px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(254, 44, 85, 0.3) 0%, rgba(37, 244, 238, 0.1) 50%, rgba(0, 0, 0, 0) 70%);
+            background: radial-gradient(circle, rgba(255, 77, 77, 0.3) 0%, rgba(255, 159, 28, 0.1) 50%, rgba(0, 0, 0, 0) 70%);
             z-index: 1;
         }
     </style>
@@ -63,14 +65,15 @@
     <header class="container mx-auto px-4 py-6 flex justify-between items-center">
         <div class="flex items-center">
             <!-- App Logo -->
+
             <div class="mr-2">
                 <svg class="w-10 h-10" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="25" cy="25" r="23" fill="url(#logo-gradient)" />
-                    <path d="M32 15.5C32 14.6716 31.3284 14 30.5 14H25.5C24.6716 14 24 14.6716 24 15.5V28.5C24 29.3284 23.3284 30 22.5 30H19.5C18.6716 30 18 30.6716 18 31.5V34.5C18 35.3284 18.6716 36 19.5 36H22.5C23.3284 36 24 35.3284 24 34.5V21.5C24 20.6716 24.6716 20 25.5 20H30.5C31.3284 20 32 19.3284 32 18.5V15.5Z" fill="white"/>
+                    <path d="M32 20.5L22 15V35L32 29.5V20.5Z" fill="white"/>
                     <defs>
                         <linearGradient id="logo-gradient" x1="0" y1="0" x2="50" y2="50" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#fe2c55"/>
-                            <stop offset="100%" stop-color="#25F4EE"/>
+                            <stop offset="0%" stop-color="#FF4D4D"/>
+                            <stop offset="100%" stop-color="#FF9F1C"/>
                         </linearGradient>
                     </defs>
                 </svg>
@@ -281,28 +284,29 @@
 
     <!-- Download Section -->
     <section id="download" class="container mx-auto px-4 py-16 md:py-24">
-        <div class="bg-[#1F1F1F] rounded-3xl p-8 md:p-16">
+        <div class="bg-gradient-to-r from-pink-500 to-orange-500 rounded-3xl p-8 md:p-16">
             <div class="flex flex-col md:flex-row items-center">
                 <div class="md:w-2/3 mb-8 md:mb-0 md:pr-8">
-                    <h2 class="text-3xl md:text-4xl font-bold mb-6">Ready to Start Your <span class="text-[#25F4EE]">LiveTok</span> Journey?</h2>
-                    <p class="text-gray-300 text-lg mb-8">Download the app now and join millions of creators worldwide. Express yourself, connect with others, and maybe even become the next viral sensation!</p>
-                    <!--<a href="#" class="inline-flex items-center bg-[#fe2c55] text-white py-3 px-6 rounded-full font-semibold hover:opacity-90 transition">-->
-                    <!--    <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">-->
-                    <!--        <path d="M17.9236 8.30576C17.7761 8.45283 15.3891 10.1622 15.3891 12.4145C15.3891 15.0284 18.3831 16.5979 18.4806 16.6466C18.4681 16.6954 18.0006 18.3791 16.7506 20.0878C15.6506 21.5747 14.5006 23.0491 12.7506 23.0491C11.0006 23.0491 10.5756 22.0622 8.57563 22.0622C6.65063 22.0622 5.97563 23.0491 4.35063 23.0491C2.72563 23.0491 1.52563 21.4747 0.375633 19.9878C-0.999367 18.1697 -1.19937 14.4747 0.225633 12.0284C1.05063 10.6803 2.52563 9.84973 4.12563 9.83723C5.82563 9.82473 7.35063 10.9622 8.32563 10.9622C9.30063 10.9622 11.1756 9.63723 13.2756 9.83723C13.9506 9.86223 15.8256 10.0991 17.1006 11.8547C16.9756 11.9409 17.9236 8.30576 17.9236 8.30576ZM12.0006 8.90576C11.8506 7.47783 12.8256 6.04973 13.7256 5.12473C14.8256 4.02473 16.4506 3.27473 17.8756 3.24973C17.9506 4.67783 17.3756 6.08098 16.3006 7.12473C15.3006 8.24973 13.7256 9.04973 12.0006 8.90576Z"/>-->
-                    <!--    </svg>-->
-                    <!--    Download on App Store-->
-                    <!--</a>-->
-                    <a href="#" class="inline-flex items-center bg-[#25F4EE] text-[#121212] py-3 px-6 rounded-full font-semibold hover:opacity-90 transition ml-4">
-                        <svg class="kOqhQd" aria-hidden="true" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0,0h40v40H0V0z"></path><g>
-                            <path d="M19.7,19.2L4.3,35.3c0,0,0,0,0,0c0.5,1.7,2.1,3,4,3c0.8,0,1.5-0.2,2.1-0.6l0,0l17.4-9.9L19.7,19.2z" fill="#EA4335"></path><path d="M35.3,16.4L35.3,16.4l-7.5-4.3l-8.4,7.4l8.5,8.3l7.5-4.2c1.3-0.7,2.2-2.1,2.2-3.6C37.5,18.5,36.6,17.1,35.3,16.4z" fill="#FBBC04"></path><path d="M4.3,4.7C4.2,5,4.2,5.4,4.2,5.8v28.5c0,0.4,0,0.7,0.1,1.1l16-15.7L4.3,4.7z" fill="#4285F4"></path><path d="M19.8,20l8-7.9L10.5,2.3C9.9,1.9,9.1,1.7,8.3,1.7c-1.9,0-3.6,1.3-4,3c0,0,0,0,0,0L19.8,20z" fill="#34A853"></path></g></svg>
+                    <h2 class="text-3xl md:text-4xl font-bold mb-6">Ready to Start Your <span class="text-white">LiveTok</span> Journey?</h2>
+                    <p class="text-white text-lg mb-8">Download the app now and join millions of creators worldwide. Express yourself, connect with others, and maybe even become the next viral sensation!</p>
+                    <a href="#" class="inline-flex items-center bg-white text-gray-900 py-3 px-6 rounded-full font-semibold hover:bg-gray-100 transition">
+                        <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.9236 8.30576C17.7761 8.45283 15.3891 10.1622 15.3891 12.4145C15.3891 15.0284 18.3831 16.5979 18.4806 16.6466C18.4681 16.6954 18.0006 18.3791 16.7506 20.0878C15.6506 21.5747 14.5006 23.0491 12.7506 23.0491C11.0006 23.0491 10.5756 22.0622 8.57563 22.0622C6.65063 22.0622 5.97563 23.0491 4.35063 23.0491C2.72563 23.0491 1.52563 21.4747 0.375633 19.9878C-0.999367 18.1697 -1.19937 14.4747 0.225633 12.0284C1.05063 10.6803 2.52563 9.84973 4.12563 9.83723C5.82563 9.82473 7.35063 10.9622 8.32563 10.9622C9.30063 10.9622 11.1756 9.63723 13.2756 9.83723C13.9506 9.86223 15.8256 10.0991 17.1006 11.8547C16.9756 11.9409 17.9236 8.30576 17.9236 8.30576ZM12.0006 8.90576C11.8506 7.47783 12.8256 6.04973 13.7256 5.12473C14.8256 4.02473 16.4506 3.27473 17.8756 3.24973C17.9506 4.67783 17.3756 6.08098 16.3006 7.12473C15.3006 8.24973 13.7256 9.04973 12.0006 8.90576Z"/>
+                        </svg>
+                        Download on App Store
+                    </a>
+                    <a href="#" class="inline-flex items-center bg-white text-gray-900 py-3 px-6 rounded-full font-semibold hover:bg-gray-100 transition ml-4">
+                        <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.18733 20.5529C3.49896 21.0358 3.89271 21.4556 4.34771 21.7931C4.80271 22.1306 5.31271 22.3797 5.84771 22.5281C6.38271 22.6764 6.93771 22.7222 7.48771 22.6639C8.03771 22.6056 8.57271 22.4439 9.06021 22.1889C9.54771 21.9339 9.97771 21.5897 10.3277 21.1764C10.6777 20.7631 10.9427 20.2889 11.1052 19.7806C11.2677 19.2722 11.3252 18.7389 11.2727 18.2097C11.2202 17.6806 11.0577 17.1681 10.7952 16.7014L10.7927 16.6972C10.5302 16.2306 10.1852 15.8222 9.77771 15.4972C9.37021 15.1722 8.90771 14.9347 8.41521 14.7972C7.92271 14.6597 7.41021 14.6222 6.90271 14.6889C6.39521 14.7556 5.90521 14.9247 5.46771 15.1889C5.03021 15.4531 4.65271 15.8072 4.35771 16.2306C4.06271 16.6539 3.85771 17.1389 3.75771 17.6472C3.65771 18.1556 3.66521 18.6806 3.78021 19.1847C3.89521 19.6889 4.11521 20.1639 4.42521 20.5764L3.18733 20.5529ZM3.18733 7.55286C3.49896 7.06995 3.89271 6.65011 4.34771 6.31261C4.80271 5.97511 5.31271 5.72595 5.84771 5.57761C6.38271 5.42928 6.93771 5.38345 7.48771 5.44178C8.03771 5.50011 8.57271 5.66178 9.06021 5.91678C9.54771 6.17178 9.97771 6.51595 10.3277 6.92928C10.6777 7.34261 10.9427 7.81678 11.1052 8.32511C11.2677 8.83345 11.3252 9.36678 11.2727 9.89595C11.2202 10.4251 11.0577 10.9376 10.7952 11.4043L10.7927 11.4084C10.5302 11.8751 10.1852 12.2834 9.77771 12.6084C9.37021 12.9334 8.90771 13.1709 8.41521 13.3084C7.92271 13.4459 7.41021 13.4834 6.90271 13.4168C6.39521 13.3501 5.90521 13.1809 5.46771 12.9168C5.03021 12.6526 4.65271 12.2984 4.35771 11.8751C4.06271 11.4518 3.85771 10.9668 3.75771 10.4584C3.65771 9.95011 3.66521 9.42511 3.78021 8.92095C3.89521 8.41678 4.11521 7.94178 4.42521 7.52928L3.18733 7.55286ZM16.8123 14.0529C17.124 13.5701 17.5177 13.1503 17.9727 12.8128C18.4277 12.4753 18.9377 12.2262 19.4727 12.0778C20.0077 11.9295 20.5627 11.8837 21.1127 11.942C21.6627 12.0003 22.1977 12.162 22.6852 12.417C23.1727 12.672 23.6027 13.0162 23.9527 13.4295C24.3027 13.8428 24.5677 14.317 24.7302 14.8253C24.8927 15.3337 24.9502 15.867 24.8977 16.3962C24.8452 16.9253 24.6827 17.4378 24.4202 17.9045L24.4177 17.9087C24.1552 18.3753 23.8102 18.7837 23.4027 19.1087C22.9952 19.4337 22.5327 19.6712 22.0402 19.8087C21.5477 19.9462 21.0352 19.9837 20.5277 19.917C20.0202 19.8503 19.5302 19.6812 19.0927 19.417C18.6552 19.1528 18.2777 18.7987 17.9827 18.3753C17.6877 17.952 17.4827 17.467 17.3827 16.9587C17.2827 16.4503 17.2902 15.9253 17.4052 15.4212C17.5202 14.917 17.7402 14.442 18.0502 14.0295L16.8123 14.0529ZM16.8123 3.05286C17.124 3.53578 17.5177 3.95561 17.9727 4.29311C18.4277 4.63061 18.9377 4.87978 19.4727 5.02811C20.0077 5.17645 20.5627 5.22228 21.1127 5.16395C21.6627 5.10561 22.1977 4.94395 22.6852 4.68895C23.1727 4.43395 23.6027 4.08978 23.9527 3.67645C24.3027 3.26311 24.5677 2.78895 24.7302 2.28061C24.8927 1.77228 24.9502 1.23895 24.8977 0.709781C24.8452 0.180614 24.6827 -0.331886 24.4202 -0.798553L24.4177 -0.802719C24.1552 -1.26939 23.8102 -1.67772 23.4027 -2.00272C22.9952 -2.32772 22.5327 -2.56522 22.0402 -2.70272C21.5477 -2.84022 21.0352 -2.87772 20.5277 -2.81105C20.0202 -2.74439 19.5302 -2.57522 19.0927 -2.31105C18.6552 -2.04689 18.2777 -1.69272 17.9827 -1.26939C17.6877 -0.846053 17.4827 -0.361053 17.3827 0.147281C17.2827 0.655614 17.2902 1.18061 17.4052 1.68478C17.5202 2.18895 17.7402 2.66395 18.0502 3.07645L16.8123 3.05286ZM3.18733 14.0529L16.8123 14.0529L18.0502 14.0295L20.5277 14.0045L24.4177 17.9087L24.4202 17.9045L20.5277 19.917L18.0502 14.0295L16.8123 14.0529L3.18733 14.0529ZM3.18733 3.05286L16.8123 3.05286L18.0502 3.07645L20.5277 3.10145L24.4177 -0.802719L24.4202 -0.798553L20.5277 -2.81105L18.0502 3.07645L16.8123 3.05286L3.18733 3.05286ZM4.42521 7.52928L3.18733 7.55286L3.18733 14.0529L4.42521 14.0295L10.7927 11.4084L10.7952 11.4043L4.42521 7.52928ZM4.42521 20.5764L3.18733 20.5529L3.18733 14.0529L4.42521 14.0295L10.7927 16.6972L10.7952 16.7014L4.42521 20.5764Z"/>
+                        </svg>
                         Get it on Play Store
                     </a>
                 </div>
                 <div class="md:w-1/3">
                     <div class="relative">
-                        <div class="absolute -top-4 -left-4 w-24 h-24 bg-[#fe2c55] bg-opacity-20 rounded-full"></div>
-                        <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-[#25F4EE] bg-opacity-20 rounded-full"></div>
-                        <img class="relative z-10 w-full max-w-xs mx-auto" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDMwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI2MDAiIHJ4PSIyMCIgZmlsbD0iIzExMSIvPgogIDxyZWN0IHg9IjEwIiB5PSIxMCIgd2lkdGg9IjI4MCIgaGVpZ2h0PSI1ODAiIHJ4PSIxNSIgZmlsbD0iIzIyMiIvPgogIDxyZWN0IHg9IjIwIiB5PSIyMCIgd2lkdGg9IjI2MCIgaGVpZ2h0PSI1NjAiIHJ4PSIxMCIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyKSIvPgogIDxjaXJjbGUgY3g9IjE1MCIgY3k9IjUwMCIgcj0iMjUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjIiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxyZWN0IHg9IjEzMCIgeT0iMzAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI1IiByeD0iMi41IiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjUiLz4KICA8Y2lyY2xlIGN4PSIxNTAiIGN5PSIyMDAiIHI9IjUwIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjEiLz4KICA8cGF0aCBkPSJNMTUwIDIwMEwxODAgMTUwSDE2MEwxNjAgMTIwSDEzMEwxMzAgMTUwSDExMEwxNTAgMjAwWiIgZmlsbD0id2hpdGUiLz4KICA8dGV4dCB4PSIxNTAiIHk9IjI1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSJ3aGl0ZSI+QGxpdmV0b2s8L3RleHQ+CiAgPHRleHQgeD0iMTUwIiB5PSIyNzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0id2hpdGUiPkdvaW5nIGxpdmUgbm93ITwvdGV4dD4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhciIgeDE9IjQwIiB5MT0iNjAiIHgyPSIyODAiIHkyPSI0NjAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iI2ZlMmM1NSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyNUY0RUUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgo8L3N2Zz4=" alt="LiveTok App Screenshot">
+                        <div class="absolute -top-4 -left-4 w-24 h-24 bg-yellow-400 bg-opacity-20 rounded-full"></div>
+                        <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-purple-500 bg-opacity-20 rounded-full"></div>
+                        <img class="relative z-10 w-full max-w-xs mx-auto" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDMwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI2MDAiIHJ4PSIyMCIgZmlsbD0iIzExMSIvPgogIDxyZWN0IHg9IjEwIiB5PSIxMCIgd2lkdGg9IjI4MCIgaGVpZ2h0PSI1ODAiIHJ4PSIxNSIgZmlsbD0iIzIyMiIvPgogIDxyZWN0IHg9IjIwIiB5PSIyMCIgd2lkdGg9IjI2MCIgaGVpZ2h0PSI1NjAiIHJ4PSIxMCIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyKSIvPgogIDxjaXJjbGUgY3g9IjE1MCIgY3k9IjUwMCIgcj0iMjUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjIiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxyZWN0IHg9IjEzMCIgeT0iMzAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI1IiByeD0iMi41IiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjUiLz4KICA8Y2lyY2xlIGN4PSIxNTAiIGN5PSIyMDAiIHI9IjUwIiBmaWxsPSJ3aGl0ZSIgZmlsbC1vcGFjaXR5PSIwLjEiLz4KICA8cGF0aCBkPSJNMTUwIDIwMEwxODAgMTUwSDE2MEwxNjAgMTIwSDEzMEwxMzAgMTUwSDExMEwxNTAgMjAwWiIgZmlsbD0id2hpdGUiLz4KICA8dGV4dCB4PSIxNTAiIHk9IjI1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSJ3aGl0ZSI+QGxpdmV0b2s8L3RleHQ+CiAgPHRleHQgeD0iMTUwIiB5PSIyNzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0id2hpdGUiPkdvaW5nIGxpdmUgbm93ITwvdGV4dD4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhciIgeDE9IjIwIiB5MT0iMjAiIHgyPSIyODAiIHkyPSI1ODAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iI0ZGNEQzRCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNGRjlGMUMiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgo8L3N2Zz4=" alt="LiveTok App Screenshot">
                     </div>
                 </div>
             </div>
@@ -314,16 +318,16 @@
         <div class="flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center mb-4 md:mb-0">
                 <div class="mr-2">
-                   <svg class="w-10 h-10" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="25" cy="25" r="23" fill="url(#logo-gradient)" />
-                    <path d="M32 15.5C32 14.6716 31.3284 14 30.5 14H25.5C24.6716 14 24 14.6716 24 15.5V28.5C24 29.3284 23.3284 30 22.5 30H19.5C18.6716 30 18 30.6716 18 31.5V34.5C18 35.3284 18.6716 36 19.5 36H22.5C23.3284 36 24 35.3284 24 34.5V21.5C24 20.6716 24.6716 20 25.5 20H30.5C31.3284 20 32 19.3284 32 18.5V15.5Z" fill="white"/>
-                    <defs>
-                        <linearGradient id="logo-gradient" x1="0" y1="0" x2="50" y2="50" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#fe2c55"/>
-                            <stop offset="100%" stop-color="#25F4EE"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
+                    <svg class="w-8 h-8" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="25" cy="25" r="23" fill="url(#footer-logo-gradient)" />
+                        <path d="M32 20.5L22 15V35L32 29.5V20.5Z" fill="white"/>
+                        <defs>
+                            <linearGradient id="footer-logo-gradient" x1="0" y1="0" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#FF4D4D"/>
+                                <stop offset="100%" stop-color="#FF9F1C"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
                 </div>
                 <h2 class="text-xl font-bold">LiveTok</h2>
             </div>
@@ -355,9 +359,9 @@
                 <p class="text-gray-400">&copy; {{ date('Y') }} LiveTok. All rights reserved.</p>
             </div>
             <div class="flex flex-wrap gap-4">
-                <a href="{{ route('privacy-policy') }}" class="text-gray-400 hover:text-white transition">Privacy Policy</a>
-                <a href="{{ route('terms') }}" class="text-gray-400 hover:text-white transition">Terms of Service</a>
-                <a href="{{ route('contact') }}" class="text-gray-400 hover:text-white transition">Contact Us</a>
+                <a href="#" class="text-gray-400 hover:text-white transition">Privacy Policy</a>
+                <a href="#" class="text-gray-400 hover:text-white transition">Terms of Service</a>
+                <a href="#" class="text-gray-400 hover:text-white transition">Contact Us</a>
                 <a href="#" class="text-gray-400 hover:text-white transition">Help Center</a>
             </div>
         </div>

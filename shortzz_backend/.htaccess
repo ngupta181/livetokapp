@@ -1,24 +1,60 @@
+# <IfModule mod_rewrite.c>
+#     #Session timeout
+
+#     <IfModule mod_negotiation.c>
+#         Options -MultiViews
+#     </IfModule>
+    
+#     # <If "%{REQUEST_URI} =~ m#^/api/#">
+#     #   SecFilterEngine Off
+#     #   SecFilterScanPOST Off
+#     # </If>
+
+#     RewriteEngine On
+
+#     # Handle Authorization Header
+#     RewriteCond %{HTTP:Authorization} .
+#     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+#     RewriteCond %{REQUEST_FILENAME} -d [OR]
+#     RewriteCond %{REQUEST_FILENAME} -f
+#     RewriteRule ^ ^$1 [N]
+
+#     RewriteCond %{REQUEST_URI} (\.\w+$) [NC]
+#     RewriteRule ^(.*)$ public/$1
+
+#     RewriteCond %{REQUEST_FILENAME} !-d
+#     RewriteCond %{REQUEST_FILENAME} !-f
+#     RewriteRule ^ index.php
+# </IfModule>
+
 <IfModule mod_rewrite.c>
-    #Session timeout
+    # Disable mod_security for API routes (may or may not work on HostGator)
+    <If "%{REQUEST_URI} =~ m#^/api/#">
+        <IfModule mod_security.c>
+            SecRuleEngine Off
+        </IfModule>
+    </If>
 
-    <IfModule mod_negotiation.c>
-        Options -MultiViews
-    </IfModule>
-
+    # Laravel-friendly URL rewrites
     RewriteEngine On
 
-    # Handle Authorization Header
+    # Fix for Authorization header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # Avoid redirect loops for existing files or folders
     RewriteCond %{REQUEST_FILENAME} -d [OR]
     RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ ^$1 [N]
+    RewriteRule ^ - [L]
 
+    # Redirect assets to public folder
     RewriteCond %{REQUEST_URI} (\.\w+$) [NC]
-    RewriteRule ^(.*)$ public/$1
+    RewriteRule ^(.*)$ public/$1 [L]
 
+    # Route all other requests to index.php
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php
+    RewriteRule ^ index.php [L]
 </IfModule>
+

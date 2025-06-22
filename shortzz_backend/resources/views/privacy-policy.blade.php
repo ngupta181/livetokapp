@@ -16,7 +16,7 @@
             background-color: #f5f5f5;
         }
         .logo {
-            text-align: center;
+            text-align: left;
             margin-bottom: 2rem;
         }
         .logo img {
@@ -70,11 +70,11 @@
     </style>
 </head>
 <body>
-    <div class="logo">
+
+    <div class="container">
+            <div class="logo">
         <img alt="logo" src="{{ asset('images/livetok_logo.png') }}" />
     </div>
-    <div class="container">
-        
         <h1>PRIVACY POLICY</h1>
         <div class="last-updated">Last Updated: July 8, 2025</div>
 
