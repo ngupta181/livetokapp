@@ -2,6 +2,26 @@
 
 ## Summary Changelog 
 
+**Date:** June 23 2025
+
+### Redis Caching Implementation
+
+#### New Files:
+- `shortzz_backend/REDIS_CACHING.md` - Redis caching documentation
+- `shortzz_backend/REDIS_SETUP.md` - Redis setup instructions
+- `shortzz_backend/app/CacheKeys.php` - Cache keys definitions
+- `shortzz_backend/app/Providers/RedisCacheServiceProvider.php` - Redis cache service provider
+
+#### Modified Files:
+- `shortzz_backend/app/Http/Controllers/API/PostController.php` - Added Redis caching for posts
+- `shortzz_backend/app/Http/Controllers/API/RecommendationController.php` - Implemented caching for recommendations
+- `shortzz_backend/app/Http/Controllers/API/UserController.php` - Added user data caching
+- `shortzz_backend/composer.json` - Updated dependencies for Redis
+- `shortzz_backend/composer.json.dev` - Development environment Redis configuration
+- `shortzz_backend/config/app.php` - Registered Redis cache service provider
+
+---------------------------------------------------------------------------------------------------------------
+
 **Date:** June 22 2025
 
 ### Rewarding Actions & Wallet Updates

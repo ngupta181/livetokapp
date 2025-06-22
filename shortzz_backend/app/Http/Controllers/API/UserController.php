@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Laravel\Passport\Token;
 use Hash;
@@ -24,6 +25,7 @@ use App\ProfileCategory;
 use App\VerificationRequest;
 use App\Notification;
 use App\BlockUser;
+use App\CacheKeys;
 use App\Classes\AgoraDynamicKey\RtcTokenBuilder;
 use App\Common;
 use App\GlobalFunction;
@@ -32,7 +34,6 @@ use Illuminate\Support\Carbon;
 use Google\Client;
 use Illuminate\Support\Facades\File as FacadesFile;
 use Illuminate\Support\Facades\Validator;
-include "./app/Class/AgoraDynamicKey/RtcTokenBuilder.php";
 
 class UserController extends Controller
 {
@@ -371,15 +372,6 @@ class UserController extends Controller
 
     function getProfile(Request $request)
     {
-
-        // $user_id = $request->user()->user_id;
-
-        // if (empty($user_id)) {
-        //     $msg = "user id is required";
-        //     return response()->json(['success_code' => 401, 'response_code' => 0, 'response_message' => $msg]);
-        // }
-
-
         $headers = $request->headers->all();
 
         $verify_request_base = Admin::verify_request_base($headers);
@@ -388,83 +380,121 @@ class UserController extends Controller
             return response()->json(['success_code' => 401, 'message' => "Unauthorized Access!"]);
             exit();
         }
+        
         $user_id = $request->user_id;
-
-        $User =  User::where('user_id', $user_id)->first();
-        if (empty($User)) {
-            return response()->json(['status' => 401, 'message' => "User Not Found"]);
-        }
-
         $my_user_id = $request->my_user_id;
-        $User->is_following_eachOther = 0;
-
-        if ($request->has('my_user_id')) {
-            $myUser = User::where('user_id', $request->my_user_id)->first();
-            if ($myUser == null) {
-                return response()->json(['status' => false, 'message' => "My User doesn't exists !"]);
+        
+        // Create a unique cache key based on user_id and my_user_id
+        $cacheKey = CacheKeys::USER_PROFILE . $user_id . ':' . $my_user_id;
+        
+        // Try to get from cache first
+        return Cache::remember($cacheKey, CacheKeys::TTL_HOUR, function () use ($user_id, $my_user_id, $request) {
+            $User = User::where('user_id', $user_id)->first();
+            if (empty($User)) {
+                return response()->json(['status' => 401, 'message' => "User Not Found"]);
             }
-            $my_user_id = $myUser->user_id;
+            
+            $User->is_following_eachOther = 0;
 
-            // Is following each other
-            $follow = Followers::where('from_user_id', $myUser->user_id)->where('to_user_id', $User->user_id)->first();
+            if ($request->has('my_user_id')) {
+                $myUser = User::where('user_id', $request->my_user_id)->first();
+                if ($myUser == null) {
+                    return response()->json(['status' => false, 'message' => "My User doesn't exists !"]);
+                }
+                $my_user_id = $myUser->user_id;
 
-            $follow2 = Followers::where('from_user_id', $User->user_id)->where('to_user_id', $myUser->user_id)->first();
+                // Is following each other - cache this relationship
+                $followCacheKey = 'follow:' . $myUser->user_id . ':' . $User->user_id;
+                $follow = Cache::remember($followCacheKey, CacheKeys::TTL_HOUR, function () use ($myUser, $User) {
+                    return Followers::where('from_user_id', $myUser->user_id)
+                        ->where('to_user_id', $User->user_id)
+                        ->first();
+                });
 
-            if ($follow2 == null || $follow == null) {
-                $User->is_following_eachOther = 0;
-            } else {
-                $User->is_following_eachOther = 1;
+                $follow2CacheKey = 'follow:' . $User->user_id . ':' . $myUser->user_id;
+                $follow2 = Cache::remember($follow2CacheKey, CacheKeys::TTL_HOUR, function () use ($User, $myUser) {
+                    return Followers::where('from_user_id', $User->user_id)
+                        ->where('to_user_id', $myUser->user_id)
+                        ->first();
+                });
+
+                if ($follow2 == null || $follow == null) {
+                    $User->is_following_eachOther = 0;
+                } else {
+                    $User->is_following_eachOther = 1;
+                }
             }
-        }
 
+            // Cache follow count
+            $isFollowCacheKey = 'is_follow:' . $my_user_id . ':' . $user_id;
+            $is_count = Cache::remember($isFollowCacheKey, CacheKeys::TTL_HOUR, function () use ($my_user_id, $user_id) {
+                return Followers::where('from_user_id', $my_user_id)
+                    ->where('to_user_id', $user_id)
+                    ->count();
+            });
 
-        $is_count = Followers::where('from_user_id', $my_user_id)->where('to_user_id', $user_id)->count();
+            $is_count = $is_count > 0 ? 1 : 0;
+            
+            // Cache block status
+            $isBlockCacheKey = 'is_block:' . $my_user_id . ':' . $user_id;
+            $is_block = Cache::remember($isBlockCacheKey, CacheKeys::TTL_HOUR, function () use ($my_user_id, $user_id) {
+                return BlockUser::where('from_user_id', $my_user_id)
+                    ->where('block_user_id', $user_id)
+                    ->count();
+            });
 
-        if ($is_count > 0) {
-            $is_count = 1;
-        } else {
-            $is_count = 0;
-        }
-        $is_block = BlockUser::where('from_user_id', $my_user_id)->where('block_user_id', $user_id)->count();
+            $is_block = $is_block > 0 ? 1 : 0;
 
-        if ($is_block > 0) {
-            $is_block = 1;
-        } else {
-            $is_block = 0;
-        }
+            $User['platform'] = $User->platform ? (int)$User->platform : 0;
+            $User['is_verify'] = $User->is_verify ? (int)$User->is_verify : 0;
+            $User['my_wallet'] = $User->my_wallet ? (int)$User->my_wallet : 0;
+            $User['status'] = $User->status ? (int)$User->status : 0;
+            $User['freez_or_not'] = $User->freez_or_not ? (int)$User->freez_or_not : 0;
+            
+            // Cache followers count
+            $followersCacheKey = 'followers_count:' . $user_id;
+            $User['followers_count'] = Cache::remember($followersCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
+                return Followers::where('to_user_id', $user_id)->count();
+            });
+            
+            // Cache following count
+            $followingCacheKey = 'following_count:' . $user_id;
+            $User['following_count'] = Cache::remember($followingCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
+                return Followers::where('from_user_id', $user_id)->count();
+            });
+            
+            // Cache post likes count - this can be expensive so cache longer
+            $postLikesKey = 'user:post_likes:' . $user_id;
+            $User['my_post_likes'] = Cache::remember($postLikesKey, CacheKeys::TTL_HOUR * 3, function () use ($user_id) {
+                $myPostIds = Post::where('user_id', $user_id)->pluck('post_id');
+                return Like::whereIn('post_id', $myPostIds)->count();
+            });
 
-        $User['platform'] = $User->platform ? (int)$User->platform : 0;
-        $User['is_verify'] = $User->is_verify ? (int)$User->is_verify : 0;
-        $User['my_wallet'] = $User->my_wallet ? (int)$User->my_wallet : 0;
+            // Cache profile category
+            $profileCatKey = 'profile_category:' . $User->profile_category;
+            $profile_category_data = Cache::remember($profileCatKey, CacheKeys::TTL_DAY, function () use ($User) {
+                return ProfileCategory::where('profile_category_id', $User->profile_category)->first();
+            });
+            
+            $User['profile_category_name'] = !empty($profile_category_data) ? $profile_category_data['profile_category_name'] : "";
+            $User['is_following'] = (int)$is_count;
+            $User['block_or_not'] = (int)$is_block;
+            $User['user_profile'] = $User->user_profile ? $User->user_profile : "";
+            $User['user_mobile_no'] = $User->user_mobile_no ? $User->user_mobile_no : "";
+            $User['bio'] = $User->bio ? $User->bio : "";
+            $User['profile_category'] = $User->profile_category ? $User->profile_category : "";
+            $User['fb_url'] = $User->fb_url ? $User->fb_url : "";
+            $User['insta_url'] = $User->insta_url ? $User->insta_url : "";
+            $User['youtube_url'] = $User->youtube_url ? $User->youtube_url : "";
 
-        $User['status'] = $User->status ? (int)$User->status : 0;
-        $User['freez_or_not'] = $User->freez_or_not ? (int)$User->freez_or_not : 0;
+            unset($User->status);
+            unset($User->freez_or_not);
+            unset($User->timezone);
+            unset($User->created_at);
+            unset($User->updated_at);
 
-        $User['followers_count'] = Followers::where('to_user_id', $user_id)->count();
-        $User['following_count'] = Followers::where('from_user_id', $user_id)->count();
-        $myPostIds = Post::where('user_id', $user_id)->pluck('post_id');
-        $myPostLikeCount = Like::whereIn('post_id', $myPostIds)->count();
-        $User['my_post_likes'] = $myPostLikeCount;
-
-        $profile_category_data = ProfileCategory::where('profile_category_id', $User->profile_category)->first();
-        $User['profile_category_name'] = !empty($profile_category_data) ? $profile_category_data['profile_category_name'] : "";
-        $User['is_following'] = (int)$is_count;
-        $User['block_or_not'] = (int)$is_block;
-        $User['user_profile'] = $User->user_profile ? $User->user_profile : "";
-        $User['user_mobile_no'] = $User->user_mobile_no ? $User->user_mobile_no : "";
-        $User['bio'] = $User->bio ? $User->bio : "";
-        $User['profile_category'] = $User->profile_category ? $User->profile_category : "";
-        $User['fb_url'] = $User->fb_url ? $User->fb_url : "";
-        $User['insta_url'] = $User->insta_url ? $User->insta_url : "";
-        $User['youtube_url'] = $User->youtube_url ? $User->youtube_url : "";
-
-        unset($User->status);
-        unset($User->freez_or_not);
-        unset($User->timezone);
-        unset($User->created_at);
-        unset($User->updated_at);
-
-        return response()->json(['status' => 200, 'message' => "User Profile Get successfully.", 'data' => $User]);
+            return response()->json(['status' => 200, 'message' => "User Profile Get successfully.", 'data' => $User]);
+        });
     }
 
     public function updateProfile(Request $request)
@@ -571,6 +601,9 @@ class UserController extends Controller
             unset($User->timezone);
             unset($User->created_at);
             unset($User->updated_at);
+            
+            // Invalidate user profile cache after update
+            $this->invalidateUserCache($user_id);
 
             return response()->json(['status' => 200, 'message' => "User details update successfully", 'data' => $User]);
         } else {
@@ -615,6 +648,13 @@ class UserController extends Controller
         Notification::where('received_user_id', $user_id)->orWhere('sender_user_id', $user_id)->orWhere('item_id', $user_id)->delete();
 
         if ($result) {
+            // Invalidate all caches related to this user
+            $this->invalidateUserCache($user_id);
+            
+            // Also invalidate any recommendations that might include this user's content
+            Cache::forget(CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':*');
+            Cache::forget(CacheKeys::TRENDING_POSTS . '*');
+            
             return response()->json(['status' => 200, 'message' => "User Account Deleted successfully"]);
         } else {
             return response()->json(['status' => 401, 'message' => "Error While User Account Delete", 'data' => []]);
@@ -895,4 +935,38 @@ class UserController extends Controller
         }
     }
    
+    /**
+     * Helper method to invalidate user cache
+     * @param int $user_id The user ID whose caches need to be invalidated
+     */
+    private function invalidateUserCache($user_id)
+    {
+        // Clear the user profile cache using pattern matching
+        $cachePattern = CacheKeys::USER_PROFILE . $user_id . ':*';
+        $keys = Cache::getPrefix() . $cachePattern;
+        
+        try {
+            $redis = app('redis')->connection();
+            $redis->eval("
+                local keys = redis.call('keys', ARGV[1])
+                for i=1,#keys do
+                    redis.call('del', keys[i])
+                end
+                return #keys
+            ", 0, [$keys]);
+            
+            // Also clear other user-related caches
+            Cache::forget('followers_count:' . $user_id);
+            Cache::forget('following_count:' . $user_id);
+            Cache::forget('user:post_likes:' . $user_id);
+            
+            // If profile category changed, clear that cache too
+            $profileCatKey = 'profile_category:' . $user_id;
+            Cache::forget($profileCatKey);
+            
+            Log::info("Invalidated user cache for user: " . $user_id);
+        } catch (\Exception $e) {
+            Log::error("Error invalidating user cache: " . $e->getMessage());
+        }
+    }
 }

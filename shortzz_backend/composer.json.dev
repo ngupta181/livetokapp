@@ -9,7 +9,6 @@
     "license": "MIT",
     "require": {
         "php": "^7.3|^8.0|^8.2",
-        "ext-imagick": "*",
         "fideloper/proxy": "^4.4",
         "fruitcake/laravel-cors": "^2.0",
         "google/apiclient": "^2.15.0",
@@ -22,6 +21,9 @@
         "league/flysystem-aws-s3-v3": "~1.0",
         "predis/predis": "^3.0",
         "symfony/polyfill-php72": "^1.28"
+    },
+    "suggest": {
+        "ext-imagick": "Required for image processing in production"
     },
     "require-dev": {
         "facade/ignition": "^2.0",
@@ -74,4 +76,4 @@
             "@php artisan key:generate --ansi"
         ]
     }
-}
+} 

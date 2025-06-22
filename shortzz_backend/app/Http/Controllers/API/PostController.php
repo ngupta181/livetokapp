@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Validator;
 use File;
@@ -30,6 +31,7 @@ use App\Report;
 use App\BlockUser;
 use App\GlobalFunction;
 use App\GlobalSettings;
+use App\CacheKeys;
 use Illuminate\Support\Carbon;
 
 class PostController extends Controller
@@ -37,14 +39,6 @@ class PostController extends Controller
 
     public function getUserVideos(Request $request)
     {
-
-
-        // $user_id = $request->user()->user_id;
-        // if (empty($user_id)) {
-        //     $msg = "user id is required";
-        //     return response()->json(['success_code' => 401, 'response_code' => 0, 'response_message' => $msg]);
-        // }
-
         $headers = $request->headers->all();
         $verify_request_base = Admin::verify_request_base($headers);
 
@@ -72,59 +66,96 @@ class PostController extends Controller
         $user_id = $request->get('user_id');
         $my_user_id = $request->get('my_user_id');
 
-        $user_videos = Post::where('user_id', $user_id)->orderBy('post_id', 'DESC')->offset($start)->limit($limit)->get();
+        // Create a cache key with all parameters that affect the result
+        $cacheKey = CacheKeys::USER_VIDEOS . $user_id . ':' . $my_user_id . ':' . $start . ':' . $limit;
+        
+        // Try to get data from cache first
+        return Cache::remember($cacheKey, CacheKeys::TTL_HOUR * 3, function () use ($user_id, $my_user_id, $start, $limit) {
+            $user_videos = Post::where('user_id', $user_id)
+                ->orderBy('post_id', 'DESC')
+                ->offset($start)
+                ->limit($limit)
+                ->get();
 
-        $i = 0;
-        $postData = [];
-        if (count($user_videos) > 0) {
+            $i = 0;
+            $postData = [];
+            if (count($user_videos) > 0) {
+                foreach ($user_videos as $post_data_value) {
+                    // Cache user data separately for reuse
+                    $userCacheKey = 'user:' . $post_data_value['user_id'];
+                    $userData = Cache::remember($userCacheKey, CacheKeys::TTL_DAY, function () use ($post_data_value) {
+                        return User::where('user_id', $post_data_value['user_id'])->first();
+                    });
+                    
+                    // Cache sound data
+                    $soundCacheKey = 'sound:' . $post_data_value['sound_id'];
+                    $soundData = Cache::remember($soundCacheKey, CacheKeys::TTL_DAY, function () use ($post_data_value) {
+                        return Sound::where('sound_id', $post_data_value['sound_id'])->first();
+                    });
+                    
+                    // These counts change frequently, so shorter TTL
+                    $commentsCacheKey = 'post_comments:' . $post_data_value['post_id'];
+                    $post_comments_count = Cache::remember($commentsCacheKey, CacheKeys::TTL_MINUTE * 10, function () use ($post_data_value) {
+                        return Comments::where('post_id', $post_data_value['post_id'])->count();
+                    });
+                    
+                    $likesCacheKey = 'post_likes:' . $post_data_value['post_id'];
+                    $post_likes_count = Cache::remember($likesCacheKey, CacheKeys::TTL_MINUTE * 10, function () use ($post_data_value) {
+                        return Like::where('post_id', $post_data_value['post_id'])->count();
+                    });
+                    
+                    // User-specific data that changes based on user interaction
+                    $is_video_like = Like::where('post_id', $post_data_value['post_id'])->where('user_id', $my_user_id)->first();
+                    $follow_or_not = Followers::where('to_user_id', $post_data_value['user_id'])->where('from_user_id', $my_user_id)->first();
+                    $is_bookmark = Bookmark::where('post_id', $post_data_value['post_id'])->where('user_id', $my_user_id)->first();
+                    
+                    // Cache profile category data
+                    $profileCatCacheKey = 'profile_category:' . $user_id;
+                    $profile_category_data = Cache::remember($profileCatCacheKey, CacheKeys::TTL_DAY, function () use ($user_id) {
+                        return ProfileCategory::select('tbl_profile_category.*')
+                            ->leftjoin('tbl_users as u', 'u.profile_category', 'tbl_profile_category.profile_category_id')
+                            ->where('u.user_id', $user_id)
+                            ->first();
+                    });
 
-            foreach ($user_videos as $post_data_value) {
-                $userData  = User::where('user_id', $post_data_value['user_id'])->first();
-                $soundData  = Sound::where('sound_id', $post_data_value['sound_id'])->first();
-                $post_comments_count  = Comments::where('post_id', $post_data_value['post_id'])->count();
-                $post_likes_count  = Like::where('post_id', $post_data_value['post_id'])->count();
-                $is_video_like  = Like::where('post_id', $post_data_value['post_id'])->where('user_id', $my_user_id)->first();
-                $follow_or_not  = Followers::where('to_user_id', $post_data_value['user_id'])->where('from_user_id', $my_user_id)->first();
-                $is_bookmark  = Bookmark::where('post_id', $post_data_value['post_id'])->where('user_id', $my_user_id)->first();
-                $profile_category_data = ProfileCategory::select('tbl_profile_category.*')->leftjoin('tbl_users as u', 'u.profile_category', 'tbl_profile_category.profile_category_id')->where('u.user_id', $user_id)->first();
+                    $postData[$i]['post_id'] = (int)$post_data_value['post_id'];
+                    $postData[$i]['user_id'] = (int)$post_data_value['user_id'];
+                    $postData[$i]['full_name'] = $userData['full_name'];
+                    $postData[$i]['user_name'] = $userData['user_name'];
+                    $postData[$i]['user_profile'] = $userData['user_profile'] ? $userData['user_profile'] : "";
+                    $postData[$i]['is_verify'] = (int)$userData['is_verify'];
+                    $postData[$i]['is_trending'] = (int)$post_data_value['is_trending'];
+                    $postData[$i]['post_description'] = $post_data_value['post_description'];
+                    $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
+                    $postData[$i]['post_video'] = $post_data_value['post_video'];
+                    $postData[$i]['post_image'] = $post_data_value['post_image'];
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
+                    $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
+                    $postData[$i]['sound_title'] = $soundData['sound_title'];
+                    $postData[$i]['duration'] = $soundData['duration'];
+                    $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
+                    $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
+                    $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
+                    $postData[$i]['post_likes_count'] = (int)$post_likes_count;
+                    $postData[$i]['post_comments_count'] = (int)$post_comments_count;
+                    $postData[$i]['post_view_count'] = (int)$post_data_value['video_view_count'];
+                    $postData[$i]['created_date'] = date('Y-m-d h:i:s', strtotime($post_data_value['created_at']));
+                    $postData[$i]['video_likes_or_not'] = !empty($is_video_like) ? 1 : 0;
+                    $postData[$i]['follow_or_not'] = !empty($follow_or_not) ? 1 : 0;
+                    $postData[$i]['is_bookmark'] = !empty($is_bookmark) ? 1 : 0;
+                    $postData[$i]['can_comment'] = $post_data_value['can_comment'] ? 1 : 0;
+                    $postData[$i]['can_duet'] = $post_data_value['can_duet'] ? 1 : 0;
+                    $postData[$i]['can_save'] = $post_data_value['can_save'] ?  1 : 0;
 
-                $postData[$i]['post_id'] = (int)$post_data_value['post_id'];
-                $postData[$i]['user_id'] = (int)$post_data_value['user_id'];
-                $postData[$i]['full_name'] = $userData['full_name'];
-                $postData[$i]['user_name'] = $userData['user_name'];
-                $postData[$i]['user_profile'] = $userData['user_profile'] ? $userData['user_profile'] : "";
-                $postData[$i]['is_verify'] = (int)$userData['is_verify'];
-                $postData[$i]['is_trending'] = (int)$post_data_value['is_trending'];
-                $postData[$i]['post_description'] = $post_data_value['post_description'];
-                $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
-                $postData[$i]['post_video'] = $post_data_value['post_video'];
-                $postData[$i]['post_image'] = $post_data_value['post_image'];
-                $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
-                $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
-                $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
-                $postData[$i]['sound_title'] = $soundData['sound_title'];
-                $postData[$i]['duration'] = $soundData['duration'];
-                $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
-                $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
-                $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
-                $postData[$i]['post_likes_count'] = (int)$post_likes_count;
-                $postData[$i]['post_comments_count'] = (int)$post_comments_count;
-                $postData[$i]['post_view_count'] = (int)$post_data_value['video_view_count'];
-                $postData[$i]['created_date'] = date('Y-m-d h:i:s', strtotime($post_data_value['created_at']));
-                $postData[$i]['video_likes_or_not'] = !empty($is_video_like) ? 1 : 0;
-                $postData[$i]['follow_or_not'] = !empty($follow_or_not) ? 1 : 0;
-                $postData[$i]['is_bookmark'] = !empty($is_bookmark) ? 1 : 0;
-                $postData[$i]['can_comment'] = $post_data_value['can_comment'] ? 1 : 0;
-                $postData[$i]['can_duet'] = $post_data_value['can_duet'] ? 1 : 0;
-                $postData[$i]['can_save'] = $post_data_value['can_save'] ?  1 : 0;
+                    $i++;
+                }
 
-                $i++;
+                return response()->json(['status' => 200, 'message' => "User Videos Data Get Successfully.", 'data' => $postData]);
+            } else {
+                return response()->json(['status' => 401, 'message' => "No Data Found.", 'data' => $postData]);
             }
-
-            return response()->json(['status' => 200, 'message' => "User Videos Data Get Successfully.", 'data' => $postData]);
-        } else {
-            return response()->json(['status' => 401, 'message' => "No Data Found.", 'data' => $postData]);
-        }
+        });
     }
 
     public function uploadFileGivePath(Request $request)
@@ -139,7 +170,6 @@ class PostController extends Controller
 
     public function getUserLikesVideos(Request $request)
     {
-
 
 
 
@@ -330,6 +360,19 @@ class PostController extends Controller
 
             $data3['sound_id'] = $sound_id;
             Post::where('post_id', $post_id)->update($data3);
+            
+            // Invalidate cache for this user's videos
+            $this->invalidateUserVideosCache($user_id);
+            
+            // Invalidate recommendation cache for trending posts
+            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
+            
+            // If the post has hashtags, invalidate related hashtag caches
+            if (!empty($post_hash_tag)) {
+                $this->invalidateHashtagCaches($post_hash_tag);
+            }
 
             return response()->json(['status' => 200, 'message' => "Post Added Successfully."]);
         } else {
@@ -377,13 +420,52 @@ class PostController extends Controller
             }
         }
 
+        // Get the post data before deleting for cache invalidation
+        $postData = Post::where('post_id', $post_id)->first();
+        
         $delete_post = Post::where('post_id', $post_id)->delete();
         Like::where('post_id', $post_id)->delete();
         comments::where('post_id', $post_id)->delete();
         Bookmark::where('post_id', $post_id)->delete();
         Report::where('post_id', $post_id)->delete();
         Notification::where('item_id', $post_id)->delete();
+        
         if ($delete_post) {
+            // Invalidate user's videos cache
+            $this->invalidateUserVideosCache($user_id);
+            
+            // Invalidate post detail cache
+            Cache::forget(CacheKeys::POST_DETAIL . $post_id);
+            
+            // Invalidate post comments cache
+            Cache::forget(CacheKeys::POST_COMMENTS . $post_id);
+            
+            // Invalidate trending posts cache 
+            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
+            
+            // If the post had hashtags, invalidate related hashtag caches
+            if (!empty($postData) && !empty($postData->post_hash_tag)) {
+                $this->invalidateHashtagCaches($postData->post_hash_tag);
+            }
+            
+            // Clear recommendation caches
+            $cacheKey = CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':*';
+            $keys = Cache::getPrefix() . $cacheKey;
+            try {
+                $redis = app('redis')->connection();
+                $redis->eval("
+                    local keys = redis.call('keys', ARGV[1])
+                    for i=1,#keys do
+                        redis.call('del', keys[i])
+                    end
+                    return #keys
+                ", 0, [$keys]);
+            } catch (\Exception $e) {
+                Log::error("Error invalidating cache: " . $e->getMessage());
+            }
+            
             return response()->json(['status' => 200, 'message' => "Post Delete Successfully."]);
         } else {
             return response()->json(['status' => 401, 'message' => "Error While Delete Post."]);
@@ -2408,5 +2490,54 @@ class PostController extends Controller
             'message' => 'Video details retrieved successfully',
             'data' => $postData
         ]);
+    }
+
+    /**
+     * Helper method to invalidate user videos cache
+     * @param int $user_id The user ID whose caches need to be invalidated
+     */
+    private function invalidateUserVideosCache($user_id)
+    {
+        // We don't know which pagination params may be cached, so clear with pattern matching
+        $cachePattern = CacheKeys::USER_VIDEOS . $user_id . ':*';
+        
+        // Get all cache keys matching the pattern
+        $keys = Cache::getPrefix() . $cachePattern;
+        
+        // Since Laravel doesn't have a direct way to clear by pattern, we can use Redis directly
+        try {
+            $redis = app('redis')->connection();
+            $redis->eval("
+                local keys = redis.call('keys', ARGV[1])
+                for i=1,#keys do
+                    redis.call('del', keys[i])
+                end
+                return #keys
+            ", 0, [$keys]);
+            
+            Log::info("Invalidated user videos cache for user: " . $user_id);
+        } catch (\Exception $e) {
+            Log::error("Error invalidating cache: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Helper method to invalidate hashtag related caches
+     * @param string $hashtagString Comma-separated list of hashtags
+     */
+    private function invalidateHashtagCaches($hashtagString)
+    {
+        $hashtags = explode(',', $hashtagString);
+        foreach ($hashtags as $hashtag) {
+            $hashtag = trim($hashtag);
+            if (!empty($hashtag)) {
+                // Clear the cache for this specific hashtag
+                $cacheKey = CacheKeys::POST_BY_TAG . $hashtag;
+                Cache::forget($cacheKey);
+            }
+        }
+        
+        // Also clear the trending hashtags cache
+        Cache::forget(CacheKeys::HASHTAG_TRENDING);
     }
 }

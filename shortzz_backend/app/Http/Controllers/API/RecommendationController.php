@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Validator;
 use DB;
 use Log;
@@ -17,6 +18,7 @@ use App\Like;
 use App\Comments;
 use App\Followers;
 use App\BlockUser;
+use App\CacheKeys;
 
 class RecommendationController extends Controller
 {
@@ -89,6 +91,17 @@ class RecommendationController extends Controller
         
         // Update content profile
         $this->updateContentProfile($post_id);
+        
+        // Invalidate recommendation cache for this user since their profile has changed
+        Cache::forget(CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':20'); // Common limit value
+        
+        // If this is a like/comment/share interaction, also invalidate trending cache
+        if (in_array($interaction_type, ['like', 'comment', 'share'])) {
+            // Clear trending posts caches - use pattern to clear all trending caches
+            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
+            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
+        }
         
         return response()->json(['status' => 200, 'message' => 'Interaction tracked successfully']);
     }
@@ -207,18 +220,24 @@ class RecommendationController extends Controller
         $limit = $request->get('limit') ? $request->get('limit') : 20;
         $user_id = $request->get('user_id');
         
+        // Create a unique cache key for this recommendation request
+        $cacheKey = CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':' . $limit;
+        
+        // Check if we have a cached response
+        $cachedResponse = Cache::get($cacheKey);
+        if ($cachedResponse) {
+            Log::info('Returning cached recommendations', ['user_id' => $user_id, 'cache_hit' => true]);
+            return $cachedResponse;
+        }
+        
+        // If no cache hit, proceed with generating recommendations
+        Log::info('Generating fresh recommendations', ['user_id' => $user_id, 'cache_hit' => false]);
+        
         // Check user's interaction count to determine personalization level
         $interactionCount = UserInteraction::where('user_id', $user_id)->count();
         
         // Get user profile
         $userProfile = UserProfile::where('user_id', $user_id)->first();
-        
-        // Log for debugging
-        Log::info('Recommendation request', [
-            'user_id' => $user_id,
-            'interaction_count' => $interactionCount,
-            'has_profile' => ($userProfile ? 'yes' : 'no')
-        ]);
         
         // Determine ratio of trending vs personalized content based on interaction history
         if ($interactionCount < 10) {
@@ -235,8 +254,11 @@ class RecommendationController extends Controller
             $personalizedLimit = $limit - $trendingLimit;
         }
         
-        // Get trending videos (always get some trending content)
-        $trendingVideos = $this->getTrendingPosts($trendingLimit, $user_id);
+        // Get trending videos - check cache first
+        $trendingCacheKey = CacheKeys::TRENDING_POSTS . $trendingLimit . ':' . $user_id;
+        $trendingVideos = Cache::remember($trendingCacheKey, CacheKeys::TTL_HOUR, function () use ($trendingLimit, $user_id) {
+            return $this->getTrendingPosts($trendingLimit, $user_id);
+        });
         
         // If user has no profile or is very new, just return trending
         if (!$userProfile || $personalizedLimit <= 0) {
@@ -248,6 +270,9 @@ class RecommendationController extends Controller
         
         // Combine results, with personalized videos dispersed among trending
         $combinedFeed = $this->interleavePosts($trendingVideos, $personalizedVideos);
+        
+        // Cache the final response for 15 minutes
+        Cache::put($cacheKey, $combinedFeed, CacheKeys::TTL_MINUTE * 15);
         
         return $combinedFeed;
     }
