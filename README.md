@@ -2,6 +2,33 @@
 
 ## Summary Changelog 
 
+**Date:** June 22 2025
+
+### Rewarding Actions & Wallet Updates
+
+#### Modified Files:
+- `bubbly/lib/modal/app_version.dart` - App version model updates
+- `bubbly/lib/view/send_bubble/dialog_send_bubble.dart` - Send bubble dialog modifications
+- `bubbly/lib/view/setting/setting_screen.dart` - Settings screen updates
+- `bubbly/lib/view/wallet/dialog_coins_plan.dart` - Updated coins plan dialog
+- `bubbly/lib/view/wallet/wallet_screen.dart` - Wallet screen enhancements
+- `bubbly/lib/utils/const_res.dart` - Updated constants
+- `shortzz_backend/app/Http/Controllers/Admin/RewardingActionController.php` - Rewarding actions controller updates
+- `shortzz_backend/resources/views/admin/rewarding_action/rewarding_action_list.blade.php` - Admin view updates
+- `shortzz_backend/resources/views/admin_layouts/sidebar.blade.php` - Admin sidebar modifications
+- `shortzz_backend/routes/web.php` - Updated web routes
+- `shortzz_backend/routes/api.php` - Updated API routes
+
+#### New Files:
+- `bubbly/icons/icCoinOld.png` - New coin icon asset
+- `shortzz_backend/app/RewardingAction.php` - New rewarding action model
+- `shortzz_backend/database/migrations/2024_03_19_000000_create_rewarding_actions_table.php` - Database migration for rewarding actions
+
+#### Modified Assets:
+- `bubbly/icons/icCoin.png` - Updated coin icon
+
+---------------------------------------------------------------------------------------------------------------
+
 **Date:** June 19 2025
 
 #### Modified Files:

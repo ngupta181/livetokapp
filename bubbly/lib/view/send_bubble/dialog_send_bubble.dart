@@ -72,7 +72,7 @@ class DialogSendBubble extends StatelessWidget {
                   ),
                   child: Center(
                     child: Image.asset(
-                      myLoading.isDark ? icLogo : icLogoLight,
+                      icCoin,
                       height: 40,
                     ),
                   ),
@@ -243,20 +243,17 @@ class CoinGridItem extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              ColorRes.colorTheme,
-              ColorRes.colorPink
+              ColorRes.colorTheme.withOpacity(0.1),
+              ColorRes.colorPink.withOpacity(0.1)
             ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight
           ),
           borderRadius: BorderRadius.all(Radius.circular(16)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -265,20 +262,18 @@ class CoinGridItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 35,
+                  height: 35,
+                  padding: EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: coinColor,
+                    color: Colors.white.withOpacity(0.1),
                   ),
                   child: Center(
-                    child: Text(
-                      '\★',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF8B4513),
-                      ),
+                    child: Image.asset(
+                      icCoin,
+                      height: 25,
+                      width: 25,
                     ),
                   ),
                 ),
@@ -293,14 +288,6 @@ class CoinGridItem extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 4),
-            // Text(
-            //   appName,
-            //   style: TextStyle(
-            //     fontSize: 14,
-            //     color: Colors.white70,
-            //   ),
-            // ),
           ],
         ),
       ),

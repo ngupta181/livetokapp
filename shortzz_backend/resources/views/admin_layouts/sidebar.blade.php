@@ -78,6 +78,11 @@
                         data-feather="info"></i><span>Terms Of Use</span></a>
             </li>
 
+            <li class="dropdown {{ active_class(['rewarding_action/list']) }}">
+                <a href="{{ url('/rewarding_action/list') }}" class="nav-link"><i
+                        data-feather="award"></i><span>Rewarding Actions</span></a>
+            </li>
+
         </ul>
     </aside>
 </div>

@@ -170,7 +170,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                             color: ColorRes.white),
                                       ),
                                     ),
-                                    Image.asset(icLogo, height: 36, width: 36)
+                                    Image.asset(icCoin, height: 36, width: 36)
                                   ],
                                 ),
                               ],

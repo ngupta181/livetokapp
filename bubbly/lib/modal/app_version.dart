@@ -43,7 +43,13 @@ class AppVersionData {
     minimumVersion = json['minimum_version'];
     latestVersion = json['latest_version'];
     updateMessage = json['update_message'];
-    forceUpdate = json['force_update'];
+    if (json['force_update'] != null) {
+      if (json['force_update'] is bool) {
+        forceUpdate = json['force_update'];
+      } else if (json['force_update'] is int) {
+        forceUpdate = json['force_update'] == 1;
+      }
+    }
     playStoreUrl = json['play_store_url'];
     appStoreUrl = json['app_store_url'];
   }

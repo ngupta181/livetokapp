@@ -137,6 +137,13 @@ Route::group(array('middleware' => 'checkRole'), function () {
         Route::post('changeContentModerationStatus', [SettingsController::class, 'changeContentModerationStatus'])->name('changeContentModerationStatus');
     });
 
+    Route::prefix('rewarding_action')->group(function () {
+        Route::get('list', 'Admin\RewardingActionController@viewListRewardingAction')->name('rewarding_action/list');
+        Route::post('showRewardingActionList', 'Admin\RewardingActionController@showRewardingActionList')->name('showRewardingActionList');
+        Route::post('updateRewardingAction', 'Admin\RewardingActionController@updateRewardingAction')->name('updateRewardingAction');
+        Route::post('deleteRewardingAction', 'Admin\RewardingActionController@deleteRewardingAction')->name('deleteRewardingAction');
+    });
+
     // Pages Routes
     Route::get('viewPrivacy', [PagesController::class, 'viewPrivacy'])->name('viewPrivacy');
     Route::post('updatePrivacy', [PagesController::class, 'updatePrivacy'])->name('updatePrivacy');

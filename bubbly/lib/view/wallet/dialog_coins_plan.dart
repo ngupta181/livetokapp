@@ -89,54 +89,68 @@ class _DialogCoinsPlanState extends State<DialogCoinsPlan> {
                         ? DataNotFound()
                         : ListView.builder(
                             itemCount: products.length,
+                            padding: EdgeInsets.symmetric(vertical: 10),
                             itemBuilder: (context, index) {
-                              return Column(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                        vertical: 10, horizontal: 20),
-                                    child: Row(
-                                      children: [
-                                        Image(
-                                            height: 30,
-                                            image: AssetImage(myLoading.isDark
-                                                ? icLogo
-                                                : icLogoLight)),
-                                        SizedBox(width: 25),
-                                        Expanded(
-                                          child: Text(
-                                            products[index].title,
-                                            style: TextStyle(fontSize: 16),
+                              return Container(
+                                margin: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: LinearGradient(
+                                    colors: [ColorRes.colorTheme.withOpacity(0.1), ColorRes.colorPink.withOpacity(0.1)],
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.all(15),
+                                  child: Row(
+                                    children: [
+                                      Image(
+                                        height: 35,
+                                        width: 35,
+                                        image: AssetImage(icCoin),
+                                      ),
+                                      SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${plans[index].coinAmount} Coins',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontFamily: FontRes.fNSfUiSemiBold,
+                                                color: myLoading.isDark ? ColorRes.white : ColorRes.colorPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          CommonUI.showLoader(context);
+                                          makePurchase(products[index]);
+                                        },
+                                        style: ButtonStyle(
+                                          backgroundColor: MaterialStateProperty.all(ColorRes.colorTheme),
+                                          padding: MaterialStateProperty.all(
+                                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                          ),
+                                          shape: MaterialStateProperty.all(
+                                            RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
                                           ),
                                         ),
-                                        TextButton(
-                                          onPressed: () async {
-                                            CommonUI.showLoader(context);
-                                            makePurchase(products[index]);
-                                          },
-                                          style: ButtonStyle(
-                                            backgroundColor:
-                                                MaterialStateProperty.all(
-                                                    ColorRes.colorTheme),
+                                        child: Text(
+                                          products[index].price,
+                                          style: TextStyle(
+                                            fontFamily: FontRes.fNSfUiSemiBold,
+                                            color: ColorRes.white,
                                           ),
-                                          child: Text(
-                                            products[index].price,
-                                            style: TextStyle(
-                                                fontFamily:
-                                                    FontRes.fNSfUiSemiBold,
-                                                color: ColorRes.white),
-                                          ),
-                                        )
-                                      ],
-                                    ),
+                                        ),
+                                      )
+                                    ],
                                   ),
-                                  Container(
-                                    height: 0.1,
-                                    color: !myLoading.isDark
-                                        ? ColorRes.colorPrimary
-                                        : ColorRes.white,
-                                  ),
-                                ],
+                                ),
                               );
                             },
                           ),
