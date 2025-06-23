@@ -41,7 +41,7 @@ class UserController extends Controller
     public static function pushNotificationToSingleUser(Request $request)
     {
         $client = new Client();
-        $client->setAuthConfig('googleCredentials.json');
+        $client->setAuthConfig(base_path('googleCredentials.json'));
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
         $client->fetchAccessTokenWithAssertion();
         $accessToken = $client->getAccessToken();
@@ -445,30 +445,34 @@ class UserController extends Controller
 
             $is_block = $is_block > 0 ? 1 : 0;
 
-            $User['platform'] = $User->platform ? (int)$User->platform : 0;
-            $User['is_verify'] = $User->is_verify ? (int)$User->is_verify : 0;
-            $User['my_wallet'] = $User->my_wallet ? (int)$User->my_wallet : 0;
-            $User['status'] = $User->status ? (int)$User->status : 0;
-            $User['freez_or_not'] = $User->freez_or_not ? (int)$User->freez_or_not : 0;
+            // Ensure all numeric fields are properly cast to integers
+            $User['platform'] = isset($User->platform) ? (int)$User->platform : 0;
+            $User['is_verify'] = isset($User->is_verify) ? (int)$User->is_verify : 0;
+            $User['my_wallet'] = isset($User->my_wallet) ? (int)$User->my_wallet : 0;
+            $User['status'] = isset($User->status) ? (int)$User->status : 0;
+            $User['freez_or_not'] = isset($User->freez_or_not) ? (int)$User->freez_or_not : 0;
             
             // Cache followers count
             $followersCacheKey = 'followers_count:' . $user_id;
-            $User['followers_count'] = Cache::remember($followersCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
+            $followers_count = Cache::remember($followersCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
                 return Followers::where('to_user_id', $user_id)->count();
             });
+            $User['followers_count'] = (int)$followers_count;
             
             // Cache following count
             $followingCacheKey = 'following_count:' . $user_id;
-            $User['following_count'] = Cache::remember($followingCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
+            $following_count = Cache::remember($followingCacheKey, CacheKeys::TTL_MINUTE * 15, function () use ($user_id) {
                 return Followers::where('from_user_id', $user_id)->count();
             });
+            $User['following_count'] = (int)$following_count;
             
             // Cache post likes count - this can be expensive so cache longer
             $postLikesKey = 'user:post_likes:' . $user_id;
-            $User['my_post_likes'] = Cache::remember($postLikesKey, CacheKeys::TTL_HOUR * 3, function () use ($user_id) {
+            $post_likes = Cache::remember($postLikesKey, CacheKeys::TTL_HOUR * 3, function () use ($user_id) {
                 $myPostIds = Post::where('user_id', $user_id)->pluck('post_id');
                 return Like::whereIn('post_id', $myPostIds)->count();
             });
+            $User['my_post_likes'] = (int)$post_likes;
 
             // Cache profile category
             $profileCatKey = 'profile_category:' . $User->profile_category;
@@ -482,7 +486,7 @@ class UserController extends Controller
             $User['user_profile'] = $User->user_profile ? $User->user_profile : "";
             $User['user_mobile_no'] = $User->user_mobile_no ? $User->user_mobile_no : "";
             $User['bio'] = $User->bio ? $User->bio : "";
-            $User['profile_category'] = $User->profile_category ? $User->profile_category : "";
+            $User['profile_category'] = isset($User->profile_category) ? (int)$User->profile_category : 0;
             $User['fb_url'] = $User->fb_url ? $User->fb_url : "";
             $User['insta_url'] = $User->insta_url ? $User->insta_url : "";
             $User['youtube_url'] = $User->youtube_url ? $User->youtube_url : "";

@@ -45,6 +45,7 @@ class AdHelper {
     required void Function(NativeAd ad) onAdLoaded,
     required void Function(LoadAdError error) onAdFailedToLoad,
     bool isGridView = false,
+    bool preferVideo = false,
   }) async {
     try {
       final completer = Completer<NativeAd?>();
@@ -61,8 +62,22 @@ class AdHelper {
             onAdFailedToLoad(error);
             completer.complete(null);
           },
+          // Add only supported video callbacks
+          onAdOpened: (ad) {
+            print('Native ad opened: ${ad.adUnitId}');
+          },
+          onAdClosed: (ad) {
+            print('Native ad closed: ${ad.adUnitId}');
+          },
+          onAdImpression: (ad) {
+            print('Native ad impression recorded');
+          },
         ),
-        request: const AdRequest(),
+        request: AdRequest(
+          // Add specific request for video content if preferred
+          contentUrl: preferVideo ? 'https://www.youtube.com/watch?v=shortvideos' : null,
+          keywords: preferVideo ? ['video', 'short form', 'entertainment'] : null,
+        ),
         // Instagram-style native template
         nativeTemplateStyle: NativeTemplateStyle(
           // Use appropriate template size

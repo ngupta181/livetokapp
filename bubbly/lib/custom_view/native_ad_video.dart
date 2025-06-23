@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Widget that displays a native ad in the video feed
+/// Widget that displays a native ad in the video feed with TikTok/Instagram-style UI
 class NativeAdVideo extends StatefulWidget {
   final NativeAd? nativeAd;
   final VoidCallback? onAdClosed;
@@ -24,19 +25,72 @@ class NativeAdVideo extends StatefulWidget {
   State<NativeAdVideo> createState() => _NativeAdVideoState();
 }
 
-class _NativeAdVideoState extends State<NativeAdVideo> {
+class _NativeAdVideoState extends State<NativeAdVideo> with SingleTickerProviderStateMixin {
   bool _isAdVisible = true;
+  bool _isSkippable = false;
+  int _remainingTime = 15; // Maximum ad duration (seconds)
+  Timer? _countdownTimer;
+  Timer? _skipTimer;
+  
+  // Animation controller for progress bar
+  late AnimationController _progressController;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize animation controller for the progress bar
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15), // Match max ad duration
+    )..forward();
+    
+    // Start the countdown for auto-dismiss
+    _startCountdown();
+    
+    // Allow skip after 5 seconds
+    _skipTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() {
+          _isSkippable = true;
+        });
+      }
+    });
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _remainingTime--;
+        });
+      }
+      
+      // Auto-dismiss ad when countdown reaches zero
+      if (_remainingTime <= 0) {
+        _handleSkipAd();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
+    _skipTimer?.cancel();
+    _progressController.dispose();
     // Note: don't dispose the ad here, as it's managed by NativeAdManager
     super.dispose();
   }
 
   void _handleSkipAd() {
+    if (!_isSkippable && _remainingTime > 10) return; // Prevent skipping too early
+    
     setState(() {
       _isAdVisible = false;
     });
+    
+    _countdownTimer?.cancel();
+    _skipTimer?.cancel();
     widget.onAdClosed?.call();
   }
   
@@ -95,48 +149,29 @@ class _NativeAdVideoState extends State<NativeAdVideo> {
                   ],
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  // Sponsored Label
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Sponsored',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: FontRes.fNSfUiMedium,
-                          ),
-                        ),
-                      ],
+                  // Progress indicator (TikTok/Instagram style)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: AnimatedBuilder(
+                      animation: _progressController,
+                      builder: (context, child) {
+                        return LinearProgressIndicator(
+                          value: 1 - (_remainingTime / 15), // Progress from 0 to 1
+                          backgroundColor: Colors.white24,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          minHeight: 2,
+                        );
+                      },
                     ),
                   ),
                   
-                  // Skip Button
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _handleSkipAd,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Sponsored Label
+                      Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
@@ -149,13 +184,13 @@ class _NativeAdVideoState extends State<NativeAdVideo> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.close,
+                              Icons.info_outline,
                               color: Colors.white,
                               size: 14,
                             ),
                             SizedBox(width: 4),
                             Text(
-                              'Skip Ad',
+                              'Sponsored',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -166,96 +201,81 @@ class _NativeAdVideoState extends State<NativeAdVideo> {
                           ],
                         ),
                       ),
-                    ),
+                      
+                      // Skip Button with Countdown
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isSkippable ? _handleSkipAd : null,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Show countdown or skip icon
+                                _isSkippable
+                                    ? Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 14,
+                                      )
+                                    : Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white24,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '$_remainingTime',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                SizedBox(width: 4),
+                                Text(
+                                  _isSkippable ? 'Skip Ad' : 'Skip in ${5 - (15 - _remainingTime > 5 ? 5 : 15 - _remainingTime)}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: FontRes.fNSfUiMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-
-          // Bottom Content Area (App Info)
-          // Positioned(
-          //   left: 0,
-          //   right: 0,
-          //   bottom: 80, // Align with bottom action buttons
-          //   child: Container(
-          //     padding: const EdgeInsets.all(16),
-          //     decoration: BoxDecoration(
-          //       gradient: LinearGradient(
-          //         begin: Alignment.bottomCenter,
-          //         end: Alignment.topCenter,
-          //         colors: [
-          //           Colors.black.withOpacity(0.8),
-          //           Colors.transparent,
-          //         ],
-          //       ),
-          //     ),
-          //     child: Column(
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       mainAxisSize: MainAxisSize.min,
-          //       children: [
-          //         // App Icon and Name Row
-          //         Row(
-          //           children: [
-          //             Container(
-          //               width: 40,
-          //               height: 40,
-          //               decoration: BoxDecoration(
-          //                 borderRadius: BorderRadius.circular(8),
-          //                 color: Colors.white.withOpacity(0.1),
-          //               ),
-          //               margin: EdgeInsets.only(right: 12),
-          //             ),
-          //             Expanded(
-          //               child: Column(
-          //                 crossAxisAlignment: CrossAxisAlignment.start,
-          //                 children: [
-          //                   Text(
-          //                     'App Name',
-          //                     style: TextStyle(
-          //                       color: Colors.white,
-          //                       fontSize: 16,
-          //                       fontWeight: FontWeight.bold,
-          //                       fontFamily: FontRes.fNSfUiBold,
-          //                     ),
-          //                   ),
-          //                   Text(
-          //                     'Sponsored',
-          //                     style: TextStyle(
-          //                       color: Colors.white70,
-          //                       fontSize: 12,
-          //                       fontFamily: FontRes.fNSfUiMedium,
-          //                     ),
-          //                   ),
-          //                 ],
-          //               ),
-          //             ),
-          //             // Install Button
-          //             Container(
-          //               padding: EdgeInsets.symmetric(
-          //                 horizontal: 20,
-          //                 vertical: 8,
-          //               ),
-          //               decoration: BoxDecoration(
-          //                 color: Colors.blue[600],
-          //                 borderRadius: BorderRadius.circular(20),
-          //               ),
-          //               child: Text(
-          //                 'INSTALL',
-          //                 style: TextStyle(
-          //                   color: Colors.white,
-          //                   fontSize: 14,
-          //                   fontWeight: FontWeight.bold,
-          //                   fontFamily: FontRes.fNSfUiBold,
-          //                 ),
-          //               ),
-          //             ),
-          //           ],
-          //         ),
-          //       ],
-          //     ),
-          //   ),
-          // ),
+          
+          // Tappable overlay to make entire video clickable (Instagram/TikTok behavior)
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: true, // Let AdWidget handle its own clicks
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+          ),
         ],
       ),
     );

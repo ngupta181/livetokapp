@@ -129,7 +129,7 @@ class PostController extends Controller
                     $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                     $postData[$i]['post_video'] = $post_data_value['post_video'];
                     $postData[$i]['post_image'] = $post_data_value['post_image'];
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                     $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
                     $postData[$i]['sound_title'] = $soundData['sound_title'];
@@ -227,7 +227,7 @@ class PostController extends Controller
                 $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                 $postData[$i]['post_video'] = $post_data_value['post_video'];
                 $postData[$i]['post_image'] = $post_data_value['post_image'];
-                $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                 $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                 $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
                 $postData[$i]['sound_title'] = $soundData['sound_title'];
@@ -562,7 +562,7 @@ class PostController extends Controller
                     $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
                     $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
                     $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                     $postData[$i]['post_likes_count'] = (int)$post_likes_count;
                     $postData[$i]['post_comments_count'] = (int)$post_comments_count;
@@ -636,6 +636,10 @@ class PostController extends Controller
                 $commentData[$c]['user_name'] = $userData['user_name'];
                 $commentData[$c]['user_profile'] = $userData['user_profile'] ? $userData['user_profile'] : "";
                 $commentData[$c]['is_verify'] = (int)$userData['is_verify'];
+                $commentData[$c]['parent_id'] = $comment_value['parent_id'] ? (int)$comment_value['parent_id'] : null;
+                $commentData[$c]['likes_count'] = (int)$replyLikesCount;
+                $commentData[$c]['is_liked'] = (int)$isReplyLiked;
+                $commentData[$c]['is_edited'] = $reply->is_edited ? 1 : 0;
                 $c++;
             }
 
@@ -1200,7 +1204,7 @@ class PostController extends Controller
                     $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                     $postData[$i]['post_video'] = $post_data_value['post_video'];
                     $postData[$i]['post_image'] = $post_data_value['post_image'];
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                     $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
                     $postData[$i]['sound_title'] = $soundData['sound_title'];
@@ -1420,7 +1424,7 @@ class PostController extends Controller
                     $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                     $postData[$i]['post_video'] = $post_data_value['post_video'];
                     $postData[$i]['post_image'] = $post_data_value['post_image'];
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                     $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
                     $postData[$i]['sound_title'] = $soundData['sound_title'];
@@ -1428,7 +1432,7 @@ class PostController extends Controller
                     $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
                     $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
                     $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
-                    $postData[$i]['post_likes_count'] = $post_likes_count;
+                    $postData[$i]['post_likes_count'] = (int)$post_likes_count;
                     $postData[$i]['post_comments_count'] = (int)$post_comments_count;
                     $postData[$i]['post_view_count'] = (int)$post_data_value['video_view_count'];
                     $postData[$i]['created_date'] = date('Y-m-d h:i:s', strtotime($post_data_value['created_at']));
@@ -2183,7 +2187,7 @@ class PostController extends Controller
                     $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                     $postData[$i]['post_video'] = $post_data_value['post_video'];
                     $postData[$i]['post_image'] = $post_data_value['post_image'];
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
                     $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
                     $postData[$i]['sound_title'] = $soundData['sound_title'];
@@ -2271,7 +2275,7 @@ class PostController extends Controller
             $postData['post_hash_tag'] = $post_list['post_hash_tag'];
             $postData['post_video'] = $post_list['post_video'];
             $postData['post_image'] = $post_list['post_image'];
-            $postData['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+            $postData['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
             $postData['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
             $postData['sound_id'] = (int)$soundData['sound_id'];
             $postData['sound_title'] = $soundData['sound_title'];
@@ -2351,25 +2355,49 @@ class PostController extends Controller
 
                     $postData[$i]['post_id'] = (int)$post_data_value['post_id'];
                     $postData[$i]['user_id'] = (int)$post_data_value['user_id'];
-                    $postData[$i]['full_name'] = $userData['full_name'];
-                    $postData[$i]['user_name'] = $userData['user_name'];
-                    $postData[$i]['user_profile'] = $userData['user_profile'] ? $userData['user_profile'] : "";
-                    $postData[$i]['is_verify'] = (int)$userData['is_verify'];
+                    
+                    // Add null checks for userData
+                    if ($userData) {
+                        $postData[$i]['full_name'] = $userData['full_name'];
+                        $postData[$i]['user_name'] = $userData['user_name'];
+                        $postData[$i]['user_profile'] = $userData['user_profile'] ? $userData['user_profile'] : "";
+                        $postData[$i]['is_verify'] = (int)$userData['is_verify'];
+                    } else {
+                        // Provide default values if userData is null
+                        $postData[$i]['full_name'] = "";
+                        $postData[$i]['user_name'] = "";
+                        $postData[$i]['user_profile'] = "";
+                        $postData[$i]['is_verify'] = 0;
+                    }
+                    
                     $postData[$i]['is_trending'] = (int)$post_data_value['is_trending'];
                     $postData[$i]['post_description'] = $post_data_value['post_description'];
                     $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                     $postData[$i]['post_video'] = $post_data_value['post_video'];
                     $postData[$i]['post_image'] = $post_data_value['post_image'];
-                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : "";
+                    $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data['profile_category_id']) ? (int)$profile_category_data['profile_category_id'] : 0;
                     $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data['profile_category_name']) ? $profile_category_data['profile_category_name'] : "";
-                    $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
-                    $postData[$i]['sound_title'] = $soundData['sound_title'];
-                    $postData[$i]['duration'] = $soundData['duration'];
-                    $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
-                    $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
-                    $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
-                    $postData[$i]['post_video_count'] = $post_video_count;
-                    $postData[$i]['post_likes_count'] = $post_likes_count;
+                    
+                    // Add null checks for soundData
+                    if ($soundData) {
+                        $postData[$i]['sound_id'] = (int)$soundData['sound_id'];
+                        $postData[$i]['sound_title'] = $soundData['sound_title'];
+                        $postData[$i]['duration'] = $soundData['duration'];
+                        $postData[$i]['singer'] = $soundData['singer'] ? $soundData['singer'] : "";
+                        $postData[$i]['sound_image'] = $soundData['sound_image'] ? $soundData['sound_image'] : "";
+                        $postData[$i]['sound'] = $soundData['sound'] ? $soundData['sound'] : "";
+                    } else {
+                        // Provide default values if soundData is null
+                        $postData[$i]['sound_id'] = 0;
+                        $postData[$i]['sound_title'] = "";
+                        $postData[$i]['duration'] = "";
+                        $postData[$i]['singer'] = "";
+                        $postData[$i]['sound_image'] = "";
+                        $postData[$i]['sound'] = "";
+                    }
+                    
+                    $postData[$i]['post_video_count'] = (int)$post_video_count;
+                    $postData[$i]['post_likes_count'] = (int)$post_likes_count;
                     $postData[$i]['post_comments_count'] = (int)$post_comments_count;
                     $postData[$i]['post_view_count'] = (int)$post_data_value['video_view_count'];
                     $postData[$i]['created_date'] = date('Y-m-d h:i:s', strtotime($post_data_value['created_at']));

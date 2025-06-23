@@ -477,7 +477,7 @@ class RecommendationController extends Controller
                 $postData[$i]['post_hash_tag'] = $post_data_value['post_hash_tag'];
                 $postData[$i]['post_video'] = $post_data_value['post_video'];
                 $postData[$i]['post_image'] = $post_data_value['post_image'];
-                $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data->profile_category_id) ? (int)$profile_category_data->profile_category_id : "";
+                $postData[$i]['profile_category_id'] = ($profile_category_data && $profile_category_data->profile_category_id) ? (int)$profile_category_data->profile_category_id : 0;
                 $postData[$i]['profile_category_name'] = ($profile_category_data && $profile_category_data->profile_category_name) ? $profile_category_data->profile_category_name : "";
                 $postData[$i]['sound_id'] = (int)$soundData->sound_id;
                 $postData[$i]['sound_title'] = $soundData->sound_title;
