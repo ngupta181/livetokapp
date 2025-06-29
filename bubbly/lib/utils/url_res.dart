@@ -258,4 +258,8 @@ class UrlRes {
 
   /// Version Check
  static final String getVersion = ConstRes.baseUrl + 'getVersion';
+  
+  /// Level System
+  static final String getUserLevel = ConstRes.baseUrl + 'User/getUserLevel';
+  static final String updateUserLevelPoints = ConstRes.baseUrl + 'User/updateUserLevelPoints';
 }
