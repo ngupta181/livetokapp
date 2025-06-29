@@ -19,8 +19,8 @@ class GiftAnimationController extends ChangeNotifier {
   // Map to track processed gifts
   final Map<int, bool> _processedGifts = {};
 
-  // Debug mode flag - set to false for production
-  bool _debugMode = false;
+  // Debug mode flag - set to true for debugging
+  bool _debugMode = true;
 
   // Add a new gift to be animated
   void addGift(LiveStreamComment giftComment) {
@@ -41,6 +41,7 @@ class GiftAnimationController extends ChangeNotifier {
         comment: giftComment.comment,
         commentType: FirebaseRes.image,
         isVerify: giftComment.isVerify,
+        userLevel: giftComment.userLevel,
       );
     }
 
@@ -50,7 +51,7 @@ class GiftAnimationController extends ChangeNotifier {
     }
 
     if (_debugMode)
-      print("GiftAnimationController: Adding gift with ID ${giftComment.id}");
+      print("GiftAnimationController: Adding gift with ID ${giftComment.id} - Image: ${giftComment.comment}");
 
     // Mark as processed
     _processedGifts[giftComment.id!] = true;
@@ -70,24 +71,41 @@ class GiftAnimationController extends ChangeNotifier {
 
     // Auto-remove after 10 seconds to match the animation duration
     Future.delayed(const Duration(seconds: 11), () {
-      _activeGifts.remove(giftComment);
-      notifyListeners();
-      if (_debugMode)
-        print("GiftAnimationController: Removed gift ${giftComment.id}");
+      if (_activeGifts.contains(giftComment)) {
+        _activeGifts.remove(giftComment);
+        notifyListeners();
+        if (_debugMode)
+          print("GiftAnimationController: Removed gift ${giftComment.id}");
+      }
     });
   }
 
   // Process a list of comments to find and add new gift comments
   void processComments(
       List<LiveStreamComment> comments, SettingData? settingData) {
-    if (_debugMode) print("Processing ${comments.length} comments for gifts");
+    if (_debugMode) {
+      print("Processing ${comments.length} comments for gifts");
+      print("Setting data exists: ${settingData != null}");
+      print("Gifts in setting data: ${settingData?.gifts?.length ?? 'null'}");
+    }
 
     for (final comment in comments) {
       if (comment.commentType == FirebaseRes.image &&
           comment.id != null &&
           !_processedGifts.containsKey(comment.id)) {
-        if (_debugMode)
+        if (_debugMode) {
           print("Found unprocessed gift: ${comment.id} - ${comment.comment}");
+          
+          // Check if this gift has a matching entry in the settingData
+          if (settingData?.gifts != null) {
+            final matchingGift = settingData!.gifts!.firstWhere(
+              (gift) => gift.image == comment.comment,
+              orElse: () => Gifts(),
+            );
+            print("Matched gift info - ID: ${matchingGift.id}, AnimationStyle: ${matchingGift.animationStyle}");
+          }
+        }
+        
         addGift(comment);
       }
     }

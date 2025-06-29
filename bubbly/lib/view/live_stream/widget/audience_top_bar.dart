@@ -5,9 +5,12 @@ import 'package:bubbly/utils/assert_image.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/font_res.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/view/live_stream/model/broad_cast_screen_view_model.dart';
 import 'package:bubbly/view/live_stream/widget/blur_tab.dart';
+import 'package:bubbly/view/live_stream/widget/top_viewers_row.dart';
+import 'package:bubbly/view/live_stream/widget/viewers_dialog.dart';
 import 'package:bubbly/view/report/report_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -38,20 +41,12 @@ class AudienceTopBar extends StatelessWidget {
                     onTap: () {
                       model.onUserTap(context);
                     },
-                    child: ClipOval(
-                      child: Image.network(
-                        "${ConstRes.itemBaseUrl}${user.userImage}",
-                        fit: BoxFit.cover,
-                        height: 45,
-                        width: 45,
-                        errorBuilder: (context, error, stackTrace) {
-                          return ImagePlaceHolder(
-                            name: user.fullName,
-                            heightWeight: 45,
-                            fontSize: 25,
-                          );
-                        },
-                      ),
+                    child: LevelUtils.getProfileWithFrame(
+                      userProfileUrl: "${ConstRes.itemBaseUrl}${user.userImage}",
+                      level: user.userLevel ?? 1,
+                      initialText: user.fullName?.substring(0, 1).toUpperCase() ?? 'N',
+                      frameSize: 65,
+                      fontSize: 20,
                     ),
                   ),
                   SizedBox(
@@ -97,6 +92,27 @@ class AudienceTopBar extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Follow button
+                  InkWell(
+                    onTap: () {
+                      model.followUser(user.userId ?? -1);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [ColorRes.colorTheme, ColorRes.colorPink],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
                   InkWell(
                     onTap: () {
                       showModalBottomSheet(
@@ -143,12 +159,27 @@ class AudienceTopBar extends StatelessWidget {
                       color: ColorRes.white),
                 ),
                 Spacer(),
-                Text(
-                  "${NumberFormat.compact(locale: 'en').format(double.parse('${model.liveStreamUser?.watchingCount ?? '0'}'))} Viewers",
-                  style: TextStyle(
-                      fontFamily: FontRes.fNSfUiRegular,
-                      fontSize: 15,
-                      color: ColorRes.white),
+                // Top viewers row
+                InkWell(
+                  onTap: () {
+                    _showViewersDialog(context);
+                  },
+                  child: model.commentList.isNotEmpty
+                      ? TopViewersRow(
+                          viewers: model.commentList,
+                          onViewAllTap: () => _showViewersDialog(context),
+                        )
+                      : Row(
+                          children: [
+                            Text(
+                              "${NumberFormat.compact(locale: 'en').format(double.parse('${model.liveStreamUser?.watchingCount ?? '0'}'))} Viewers",
+                              style: TextStyle(
+                                  fontFamily: FontRes.fNSfUiRegular,
+                                  fontSize: 15,
+                                  color: ColorRes.white),
+                            ),
+                          ],
+                        ),
                 ),
                 Spacer(),
                 InkWell(
@@ -181,6 +212,21 @@ class AudienceTopBar extends StatelessWidget {
             ),
           )
         ],
+      ),
+    );
+  }
+
+  void _showViewersDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ViewersDialog(
+        viewers: model.commentList,
+        onFollowTap: (viewer) {
+          model.followUser(viewer.userId ?? -1);
+          Navigator.pop(context);
+        },
       ),
     );
   }

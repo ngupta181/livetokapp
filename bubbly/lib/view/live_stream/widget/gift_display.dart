@@ -24,7 +24,8 @@ class GiftDisplay extends StatefulWidget {
 class _GiftDisplayState extends State<GiftDisplay> {
   final GiftAnimationController _controller = GiftAnimationController();
   Timer? _processingTimer;
-  bool _debugMode = false;
+  // Set to true only for debugging
+  bool _debugMode = true;
 
   @override
   void initState() {
@@ -66,13 +67,28 @@ class _GiftDisplayState extends State<GiftDisplay> {
 
   // Find the gift details from the comment
   Gifts? _findGiftFromImage(String image) {
-    if (widget.settingData?.gifts == null) return null;
+    if (_debugMode) print("Finding gift for image: $image");
+    
+    if (widget.settingData?.gifts == null) {
+      if (_debugMode) print("No gifts in settingData");
+      return null;
+    }
+    
+    if (_debugMode) {
+      print("Available gifts: ${widget.settingData!.gifts!.length}");
+      widget.settingData!.gifts!.forEach((gift) {
+        print("Gift ID: ${gift.id}, Image: ${gift.image}, AnimationStyle: ${gift.animationStyle}");
+      });
+    }
 
     for (Gifts gift in widget.settingData!.gifts!) {
       if (gift.image == image) {
+        if (_debugMode) print("Found gift with ID: ${gift.id}, AnimationStyle: ${gift.animationStyle}");
         return gift;
       }
     }
+    
+    if (_debugMode) print("No gift found for image: $image");
     return null;
   }
 
@@ -108,15 +124,26 @@ class _GiftDisplayState extends State<GiftDisplay> {
 
                     // Find the gift details
                     Gifts? giftDetails = _findGiftFromImage(gift.comment ?? '');
+                    
+                    // Debug the animation style
+                    if (_debugMode) {
+                      print("Gift animation style: ${giftDetails?.animationStyle}");
+                    }
 
                     // Check if this is a full-screen animation
-                    if (giftDetails?.animationStyle == 'full_screen') {
+                    if (giftDetails != null && giftDetails.animationStyle == 'full_screen') {
+                      if (_debugMode) {
+                        print("Using FULL SCREEN animation for gift ${gift.id}");
+                      }
                       return FullScreenGiftAnimation(
                         key: ValueKey(gift.id),
                         giftComment: gift,
                         settingData: widget.settingData,
                       );
                     } else {
+                      if (_debugMode) {
+                        print("Using REGULAR animation for gift ${gift.id}");
+                      }
                       // Regular animation
                       return Positioned(
                         top: MediaQuery.of(context).size.height / 2 - 40,

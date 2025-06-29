@@ -8,7 +8,9 @@ import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:bubbly/view/followers/follower_screen.dart';
+import 'package:bubbly/view/profile/dialog_profile_category.dart';
 import 'package:bubbly/view/profile/widget/follow_unfollow_button.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_utils/get_utils.dart';
@@ -38,6 +40,15 @@ class ProfileCard extends StatelessWidget {
       required this.onEditProfileClick})
       : super(key: key);
 
+  // Helper methods for level display
+  Color _getLevelColor(int level) {
+    return LevelUtils.getLevelColor(level);
+  }
+  
+  String _getLevelEmoji(int level) {
+    return LevelUtils.getLevelBadgeEmoji(level);
+  }
+
   @override
   Widget build(BuildContext context) {
     return userData == null
@@ -49,19 +60,12 @@ class ProfileCard extends StatelessWidget {
                 onTap: () {
                   myLoading.setIsBigProfile(true);
                 },
-                child: Container(
-                  height: 110,
-                  width: 110,
-                  decoration: BoxDecoration(border: Border.all(color: ColorRes.colorTextLight, width: 0.5), shape: BoxShape.circle),
-                  child: ClipOval(
-                    child: Image.network(
-                      '${ConstRes.itemBaseUrl}${userData?.userProfile}',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return ImagePlaceHolder(heightWeight: 110, name: userData?.fullName, fontSize: 110 / 3);
-                      },
-                    ),
-                  ),
+                child: LevelUtils.getProfileWithFrame(
+                  userProfileUrl: '${ConstRes.itemBaseUrl}${userData?.userProfile}',
+                  level: userData?.userLevel ?? 1,
+                  initialText: userData?.fullName?.substring(0, 1).toUpperCase() ?? '',
+                  frameSize: 120,
+                  fontSize: 40,
                 ),
               ),
               SizedBox(height: 5),
@@ -102,6 +106,49 @@ class ProfileCard extends StatelessWidget {
                           width: 15,
                         )
                       : SizedBox()
+                ],
+              ),
+              // User Level Badge
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      // Navigate to level screen
+                      // Create a User object to wrap the UserData
+                      User userObj = User(
+                        status: 200,
+                        message: "Success",
+                        data: userData
+                      );
+                      Navigator.pushNamed(context, '/level', arguments: userObj);
+                    },
+                    child: Container(
+                      margin: EdgeInsets.symmetric(vertical: 5),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(userData?.userLevel ?? 1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            _getLevelEmoji(userData?.userLevel ?? 1),
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Lv ${userData?.userLevel ?? 1}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: FontRes.fNSfUiBold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
               Row(

@@ -29,9 +29,11 @@ import 'package:bubbly/modal/sound/fav/favourite_music.dart';
 import 'package:bubbly/modal/sound/sound.dart';
 import 'package:bubbly/modal/status.dart';
 import 'package:bubbly/modal/user/user.dart';
+import 'package:bubbly/modal/user/user_level.dart';
 import 'package:bubbly/modal/user_video/user_video.dart';
 import 'package:bubbly/modal/wallet/my_wallet.dart';
 import 'package:bubbly/modal/wallet/transaction_history.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/crash_reporter.dart';
 import 'package:bubbly/utils/key_res.dart';
@@ -514,6 +516,8 @@ class ApiService {
       body['gift_id'] = giftId;
     }
     
+    print("COIN API: Sending ${coin} coins to user ${toUserId} ${giftId != null ? 'with gift #$giftId' : ''}");
+    
     final response = await client.post(
       Uri.parse(UrlRes.sendCoin),
       body: body,
@@ -523,7 +527,21 @@ class ApiService {
       },
     );
     final responseJson = jsonDecode(response.body);
-    await getProfile(SessionManager.userId.toString());
+    print("COIN API: Response status: ${responseJson['status']}, message: ${responseJson['message']}");
+    
+    // Points should now be updated on the server from the WalletController.php
+    // But we'll add a short delay and refresh user data to ensure we have the updated level
+    try {
+      // Short delay to allow server to process the level update
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Get the updated profile with new level
+      await getProfile(SessionManager.userId.toString());
+      print("COIN API: Refreshed profile after coin transaction");
+    } catch (e) {
+      print("COIN API: Error refreshing profile: $e");
+    }
+    
     return RestResponse.fromJson(responseJson);
   }
 
@@ -1524,5 +1542,42 @@ class ApiService {
     
     final responseJson = jsonDecode(response.body);
     return TransactionHistory.fromJson(responseJson);
+  }
+
+  // User level system methods
+  Future<UserLevel> getUserLevel() async {
+    client = http.Client();
+    final response = await client.get(
+      Uri.parse(UrlRes.getUserLevel),
+      headers: {
+        UrlRes.uniqueKey: ConstRes.apiKey,
+        UrlRes.authorization: SessionManager.accessToken,
+      },
+    );
+    
+    final responseJson = jsonDecode(response.body);
+    return UserLevel.fromJson(responseJson);
+  }
+
+  Future<RestResponse> updateUserLevelPoints(int points, String actionType) async {
+    client = http.Client();
+    final response = await client.post(
+      Uri.parse(UrlRes.updateUserLevelPoints),
+      body: {
+        'points': points.toString(),
+        'action_type': actionType,
+        'user_id': SessionManager.userId.toString(),
+      },
+      headers: {
+        UrlRes.uniqueKey: ConstRes.apiKey,
+        UrlRes.authorization: SessionManager.accessToken,
+      },
+    );
+    
+    final responseJson = jsonDecode(response.body);
+    print("LEVEL API: Updated points: $points, action: $actionType, response: ${responseJson['status']}, message: ${responseJson['message']}");
+    
+    await getProfile(SessionManager.userId.toString());
+    return RestResponse.fromJson(responseJson);
   }
 }

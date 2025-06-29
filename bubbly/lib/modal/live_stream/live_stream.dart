@@ -13,6 +13,7 @@ class LiveStreamUser {
   String? _userImage;
   int? _watchingCount;
   int? _followers;
+  int? _userLevel;
 
   LiveStreamUser(
       {String? agoraToken,
@@ -26,7 +27,8 @@ class LiveStreamUser {
       String? userImage,
       int? watchingCount,
       String? userName,
-      int? followers}) {
+      int? followers,
+      int? userLevel}) {
     _agoraToken = agoraToken;
     _collectedDiamond = collectedDiamond;
     _fullName = fullName;
@@ -39,6 +41,7 @@ class LiveStreamUser {
     _watchingCount = watchingCount;
     _userName = userName;
     _followers = followers;
+    _userLevel = userLevel;
   }
 
   Map<String, dynamic> toJson() {
@@ -54,7 +57,8 @@ class LiveStreamUser {
       "userImage": _userImage,
       "watchingCount": _watchingCount,
       "userName": _userName,
-      "followers": _followers
+      "followers": _followers,
+      "userLevel": _userLevel
     };
   }
 
@@ -76,6 +80,7 @@ class LiveStreamUser {
     _watchingCount = json?["_watchingCount"];
     _userName = json?["userName"];
     _followers = json?["followers"];
+    _userLevel = json?["userLevel"];
   }
 
   Map<String, dynamic> toFireStore() {
@@ -91,7 +96,8 @@ class LiveStreamUser {
       "userImage": _userImage,
       "watchingCount": _watchingCount,
       "userName": _userName,
-      "followers": _followers
+      "followers": _followers,
+      "userLevel": _userLevel
     };
   }
 
@@ -117,6 +123,7 @@ class LiveStreamUser {
       watchingCount: data?["watchingCount"],
       userName: data?["userName"],
       followers: data?["followers"],
+      userLevel: data?["userLevel"],
     );
   }
 
@@ -143,6 +150,8 @@ class LiveStreamUser {
   String? get userName => _userName;
 
   int? get followers => _followers;
+
+  int? get userLevel => _userLevel;
 }
 
 class LiveStreamComment {
@@ -154,6 +163,7 @@ class LiveStreamComment {
   String? _userImage;
   String? _userName;
   String? _fullName;
+  int? _userLevel;
 
   LiveStreamComment(
       {String? comment,
@@ -163,7 +173,8 @@ class LiveStreamComment {
       int? userId,
       String? userImage,
       String? userName,
-      String? fullName}) {
+      String? fullName,
+      int? userLevel}) {
     _comment = comment;
     _commentType = commentType;
     _id = id;
@@ -172,6 +183,7 @@ class LiveStreamComment {
     _userImage = userImage;
     _userName = userName;
     _fullName = fullName;
+    _userLevel = userLevel;
   }
 
   Map<String, dynamic> toJson() {
@@ -184,6 +196,7 @@ class LiveStreamComment {
       "userImage": _userImage,
       "userName": _userName,
       "fullName": _fullName,
+      "userLevel": _userLevel,
     };
   }
 
@@ -196,6 +209,7 @@ class LiveStreamComment {
     _userImage = json?["userImage"];
     _userName = json?["userName"];
     _fullName = json?["fullName"];
+    _userLevel = json?["userLevel"];
   }
 
   Map<String, dynamic> toFireStore() {
@@ -208,6 +222,7 @@ class LiveStreamComment {
       "userImage": _userImage,
       "userName": _userName,
       "fullName": _fullName,
+      "userLevel": _userLevel,
     };
   }
 
@@ -225,6 +240,7 @@ class LiveStreamComment {
       userImage: data?['userImage'],
       userName: data?['userName'],
       fullName: data?['fullName'],
+      userLevel: data?['userLevel'],
     );
   }
 
@@ -243,4 +259,6 @@ class LiveStreamComment {
   String? get comment => _comment;
 
   String? get fullName => _fullName;
+
+  int? get userLevel => _userLevel;
 }

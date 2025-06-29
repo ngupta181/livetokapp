@@ -133,6 +133,61 @@ class WalletController extends Controller
                 'status' => 'completed'
             ]);
 
+            // Update user level points for gifting coins - convert coins to points
+            try {
+                // Calculate level points - 5 points per coin as defined in LevelUtils.dart
+                $levelPoints = $coin * 5;
+                
+                \Log::info("Updating level points for user $user_id sending gift: $levelPoints points");
+                
+                // Get the unique key from the original request
+                $uniqueKey = $request->header('unique-key');
+                
+                // Create a new request with the required headers
+                $levelRequest = new \Illuminate\Http\Request([
+                    'points' => $levelPoints,
+                    'action_type' => !empty($gift_id) ? 'send_gift' : 'send_coins',
+                    'user_id' => $user_id
+                ]);
+                
+                // Set the required headers
+                $levelRequest->headers->set('unique-key', $uniqueKey);
+                
+                // Call UserController to update level points
+                $senderPointsResponse = app(\App\Http\Controllers\API\UserController::class)->updateUserLevelPoints(
+                    $levelRequest
+                );
+                
+                // Log response for debugging
+                \Log::info("Sender level points update response: " . json_encode($senderPointsResponse->getData()));
+                
+                // Also reward the recipient with some level points (25% of the sender's points)
+                $recipientPoints = intval($levelPoints * 0.25);
+                if ($recipientPoints > 0) {
+                    \Log::info("Updating level points for recipient $to_user_id: $recipientPoints points");
+                    
+                    // Create another request for the recipient with headers
+                    $recipientRequest = new \Illuminate\Http\Request([
+                        'points' => $recipientPoints,
+                        'action_type' => 'receive_gift',
+                        'user_id' => $to_user_id
+                    ]);
+                    
+                    // Set the required headers again
+                    $recipientRequest->headers->set('unique-key', $uniqueKey);
+                    
+                    $recipientPointsResponse = app(\App\Http\Controllers\API\UserController::class)->updateUserLevelPoints(
+                        $recipientRequest
+                    );
+                    
+                    \Log::info("Recipient level points update response: " . json_encode($recipientPointsResponse->getData()));
+                }
+            } catch (\Exception $e) {
+                // Log the error but continue with the transaction
+                \Log::error('Error updating user level points: ' . $e->getMessage());
+                \Log::error($e->getTraceAsString());
+            }
+
             $noti_user_id = $to_user_id;
 
             $userData =  User::where('user_id', $noti_user_id)->first();

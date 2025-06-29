@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Route;
     Route::prefix('User')->group(function () {
     Route::post('Registration', 'API\UserController@Registration');
     Route::post('getProfile', 'API\UserController@getProfile');
+    Route::get('getUserLevel', 'API\UserController@getUserLevel');
+    Route::post('updateUserLevelPoints', 'API\UserController@updateUserLevelPoints');
 });
 
 Route::prefix('Post')->group(function () {
@@ -101,3 +103,6 @@ Route::group(['middleware' => 'auth:api'], function () {
 
     });
 });
+
+// User Level System
+//Route::get('User/getUserLevel', 'API\UserController@getUserLevel');

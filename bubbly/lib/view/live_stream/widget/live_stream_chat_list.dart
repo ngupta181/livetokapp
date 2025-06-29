@@ -5,6 +5,7 @@ import 'package:bubbly/modal/live_stream/live_stream.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/font_res.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:flutter/material.dart';
 
 class LiveStreamChatList extends StatelessWidget {
@@ -44,31 +45,19 @@ class LiveStreamChatList extends StatelessWidget {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           reverse: true,
           itemBuilder: (context, index) {
+            final comment = commentList[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                        color: Colors.grey,
-                        border: Border.all(color: ColorRes.white),
-                        borderRadius: BorderRadius.circular(30)),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: Image.network(
-                        ConstRes.getImageUrl(commentList[index].userImage),
-                        fit: BoxFit.cover,
-                        height: 35,
-                        width: 35,
-                        errorBuilder: (context, error, stackTrace) {
-                          return ImagePlaceHolder(
-                              heightWeight: 35,
-                              name: commentList[index].fullName,
-                              fontSize: 15);
-                        },
-                      ),
-                    ),
+                  // Avatar with frame based on user level
+                  LevelUtils.getProfileWithFrame(
+                    userProfileUrl: "${ConstRes.itemBaseUrl}${comment.userImage}",
+                    level: comment.userLevel ?? 1,
+                    initialText: comment.fullName?.substring(0, 1).toUpperCase() ?? 'U',
+                    frameSize: 35,
+                    fontSize: 14,
                   ),
                   const SizedBox(width: 8),
                   SizedBox(
@@ -76,14 +65,14 @@ class LiveStreamChatList extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(commentList[index].fullName ?? '',
+                        Text(comment.fullName ?? '',
                             style: TextStyle(
                                 color: ColorRes.white,
                                 fontSize: 13,
                                 fontFamily: FontRes.fNSfUiMedium)),
                         SizedBox(height: 2),
-                        commentList[index].commentType == "msg"
-                            ? Text(commentList[index].comment ?? '',
+                        comment.commentType == "msg"
+                            ? Text(comment.comment ?? '',
                                 style: TextStyle(
                                     color: ColorRes.greyShade100, fontSize: 12))
                             : ClipRRect(
@@ -103,7 +92,7 @@ class LiveStreamChatList extends StatelessWidget {
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
                                       child: Image.network(
-                                        ConstRes.getImageUrl(commentList[index].comment),
+                                        ConstRes.getImageUrl(comment.comment),
                                         width: 40,
                                         height: 40,
                                         fit: BoxFit.cover,

@@ -1,11 +1,15 @@
 import 'image_utils.dart';
 
 class ConstRes {
-  static final String base = 'https://livetok.app/';
+  static final String base = 'http://54.152.126.254/';
+  // static final String base = 'https://livetok.app/';
   static const String apiKey = 'Y29tLmxpdmUudG9rLmFwcA==';
   static final String baseUrl = '${base}api/';
 
-  static final String itemBaseUrl = 'https://delqviq69zgnh.cloudfront.net/livetok/';
+  // static final String itemBaseUrl = 'https://delqviq69zgnh.cloudfront.net/livetok/';
+
+  //AWS S3 Bucket URL
+  static final String itemBaseUrl = 'https://d39cvx4gnc8muq.cloudfront.net/livetok/';
   
   // Helper method to safely construct image URLs
   static String getImageUrl(String? imagePath) {
@@ -47,8 +51,22 @@ int maxUploadMB = 150;
 int maxUploadSecond = 180;
 
 //Strings
-const List<String> paymentMethods = ['Paypal', 'Stripe','Other'];
-const List<String> reportReasons = ['Sexual', 'Nudity', 'Religion', 'Other'];
+const List<String> paymentMethods = ['Paypal'];
+const List<String> reportReasons = [
+  'Sexual',
+  'Nudity', 
+  'Religion',
+  'Violence',
+  'Harassment',
+  'Hate Speech',
+  'Spam',
+  'Fake News',
+  'Copyright Violation',
+  'Impersonation',
+  'Self Harm',
+  'Terrorism',
+  'Other'
+];
 
 // Video Moderation models  :- https://sightengine.com/docs/moderate-stored-video-asynchronously
 String nudityModels = 'nudity,wad';

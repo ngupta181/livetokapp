@@ -190,6 +190,17 @@ class CoinGridItem extends StatelessWidget {
             myLoading.setUser(updatedUser);
             final updatedBalance = updatedUser?.data?.myWallet ?? 0;
 
+            // Update user level points when coins are sent
+            if (response.status == 200 || initialBalance > updatedBalance) {
+              try {
+                // The level points are already updated in the API service sendCoin method
+                // Just refresh the user profile to get the updated level
+                await ApiService().getProfile(updatedUser?.data?.userId.toString() ?? '');
+              } catch (e) {
+                print('Error updating level: $e');
+              }
+            }
+
             // Check if transaction was successful either by API response or by wallet balance change
             final bool isTransactionSuccessful =
                 response.status == 200 || initialBalance > updatedBalance;
@@ -221,7 +232,14 @@ class CoinGridItem extends StatelessWidget {
               final updatedBalance = updatedUser?.data?.myWallet ?? 0;
 
               if (initialBalance > updatedBalance) {
-                // Transaction was successful despite error
+                // Transaction was successful despite error, update level points
+                try {
+                  await ApiService().getProfile(updatedUser?.data?.userId.toString() ?? '');
+                } catch (e) {
+                  print('Error updating level: $e');
+                }
+                
+                // Show success dialog
                 showDialog(
                     context: context,
                     builder: (context) =>

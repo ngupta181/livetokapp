@@ -2,8 +2,9 @@ import 'package:bubbly/modal/user/user.dart';
 import 'package:bubbly/view/live_stream/model/broad_cast_screen_view_model.dart';
 import 'package:bubbly/view/live_stream/widget/broad_cast_top_bar_area.dart';
 import 'package:bubbly/view/live_stream/widget/swipeable_comments.dart';
-import 'package:bubbly/view/live_stream/widget/gift_display.dart';
-import 'package:bubbly/view/live_stream/widget/gift_animation_controller.dart';
+import 'package:bubbly/view/live_stream/widget/gift_queue_display.dart';
+import 'package:bubbly/view/live_stream/widget/level_up_animation.dart';
+import 'package:bubbly/view/live_stream/widget/level_up_animation_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
@@ -24,8 +25,8 @@ class BroadCastScreen extends StatefulWidget {
 }
 
 class _BroadCastScreenState extends State<BroadCastScreen> {
-  final GiftAnimationController _giftAnimationController =
-      GiftAnimationController();
+  final LevelUpAnimationController _levelUpController =
+      LevelUpAnimationController();
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +80,30 @@ class _BroadCastScreenState extends State<BroadCastScreen> {
                   ),
                 ),
 
-                // Top layer - gift animations (must be last in stack to show on top)
-                GiftDisplay(
+                // Gift animations (using new system)
+                GiftQueueDisplay(
                   commentList: model.commentList,
                   settingData: model.settingData,
+                ),
+                
+                // Level up animation display
+                AnimatedBuilder(
+                  animation: _levelUpController,
+                  builder: (context, _) {
+                    if (_levelUpController.showLevelAnimation) {
+                      return Center(
+                        child: LevelUpAnimation(
+                          oldLevel: _levelUpController.oldLevel,
+                          newLevel: _levelUpController.newLevel,
+                          onAnimationComplete: () {
+                            _levelUpController.hideAnimation();
+                          },
+                        ),
+                      );
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  },
                 ),
               ],
             ),

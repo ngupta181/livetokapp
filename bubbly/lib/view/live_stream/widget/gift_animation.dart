@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/const_res.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:bubbly/modal/live_stream/live_stream.dart';
 import 'package:bubbly/modal/setting/setting.dart';
 
@@ -202,46 +203,15 @@ class _GiftAnimationState extends State<GiftAnimation>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // User profile picture
-                    Container(
-                      width: 50,
-                      height: 50,
-                      margin: EdgeInsets.only(left: 5),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Color(0xFFDAA520),
-                          width: 2,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
-                        child: userImage.isNotEmpty
-                            ? Image.network(
-                                '${ConstRes.itemBaseUrl}$userImage',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) {
-                                  return CircleAvatar(
-                                    backgroundColor: ColorRes.colorPink,
-                                    child: Text(
-                                      senderName.isNotEmpty
-                                          ? senderName[0].toUpperCase()
-                                          : 'U',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  );
-                                },
-                              )
-                            : CircleAvatar(
-                                backgroundColor: ColorRes.colorPink,
-                                child: Text(
-                                  senderName.isNotEmpty
-                                      ? senderName[0].toUpperCase()
-                                      : 'U',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                      ),
+                    // User profile picture with level frame
+                    LevelUtils.getProfileWithFrame(
+                      userProfileUrl: "${ConstRes.itemBaseUrl}$userImage",
+                      level: widget.giftComment.userLevel ?? 1,
+                      initialText: senderName.isNotEmpty
+                          ? senderName[0].toUpperCase()
+                          : 'U',
+                      frameSize: 50,
+                      fontSize: 16,
                     ),
 
                     SizedBox(width: 15),

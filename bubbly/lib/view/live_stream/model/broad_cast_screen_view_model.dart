@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:developer';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:bubbly/api/api_service.dart';
@@ -12,10 +14,12 @@ import 'package:bubbly/utils/const_res.dart';
 import 'package:bubbly/utils/firebase_res.dart';
 import 'package:bubbly/utils/key_res.dart';
 import 'package:bubbly/utils/session_manager.dart';
+import 'package:bubbly/utils/level_utils.dart';
 import 'package:bubbly/view/dialog/confirmation_dialog.dart';
 import 'package:bubbly/view/live_stream/screen/live_stream_end_screen.dart';
 import 'package:bubbly/view/live_stream/widget/gift_animation_controller.dart';
 import 'package:bubbly/view/live_stream/widget/gift_sheet.dart';
+import 'package:bubbly/view/live_stream/widget/level_up_animation_controller.dart';
 import 'package:bubbly/view/profile/profile_screen.dart';
 import 'package:bubbly/view/wallet/dialog_coins_plan.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:stacked/stacked.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class BroadCastScreenViewModel extends BaseViewModel {
   SettingData? settingData;
@@ -69,6 +74,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
   Timer? minimumUserLiveTimer;
   int countTimer = 0;
   int maxMinutes = 0;
+  Gifts? selectedGift;
 
   void rtcEngineHandlerCall() {
     engineEventHandler = RtcEngineEventHandler(
@@ -92,6 +98,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
                 userName: registrationUser?.data?.userName ?? '',
                 watchingCount: 0,
                 followers: registrationUser?.data?.followersCount,
+                userLevel: registrationUser?.data?.userLevel ?? 1,
               ).toJson());
         }
         notifyListeners();
@@ -312,34 +319,46 @@ class BroadCastScreenViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  Future<void> onCommentSend(
-      {required String commentType, required String msg}) async {
-    // Print debug info
-    print("Sending comment: type=$commentType, msg=$msg");
-
-    final commentId = DateTime.now().millisecondsSinceEpoch;
-    LiveStreamComment newComment = LiveStreamComment(
-        id: commentId,
-        userName: user?.data?.userName ?? '',
-        userImage: user?.data?.userProfile ?? '',
-        userId: user?.data?.userId ?? -1,
-        fullName: user?.data?.fullName ?? '',
-        comment: msg,
-        commentType: commentType,
-        isVerify: user?.data?.isVerify == 1 ? true : false);
-
-    await db
+  Future<void> onCommentSend({required String commentType, String? msg}) async {
+    if (commentType == FirebaseRes.msg && (msg == null || msg.isEmpty)) {
+      return;
+    }
+    
+    // For image/gift comments, use the gift image from the selected gift
+    String commentContent = commentType == FirebaseRes.msg 
+        ? msg ?? '' 
+        : selectedGift?.image ?? '';
+    
+    db
         .collection(FirebaseRes.liveStreamUser)
         .doc(_channelName)
         .collection(FirebaseRes.comment)
-        .add(newComment.toJson());
-
-    print("Comment sent successfully");
+        .add(LiveStreamComment(
+          id: DateTime.now().millisecondsSinceEpoch,
+          userName: user?.data?.userName ?? '',
+          userImage: user?.data?.userProfile ?? '',
+          userId: user?.data?.userId ?? -1,
+          fullName: user?.data?.fullName ?? '',
+          comment: commentContent,
+          commentType: commentType,
+          isVerify: user?.data?.isVerify == 1 ? true : false,
+          userLevel: user?.data?.userLevel ?? 1,
+        ).toJson());
 
     // If it's a gift, trigger animation immediately as well
     if (commentType == FirebaseRes.image) {
       print("Gift comment - adding to animation controller");
-      GiftAnimationController().addGift(newComment);
+      GiftAnimationController().addGift(LiveStreamComment(
+        id: DateTime.now().millisecondsSinceEpoch,
+        userName: user?.data?.userName ?? '',
+        userImage: user?.data?.userProfile ?? '',
+        userId: user?.data?.userId ?? -1,
+        fullName: user?.data?.fullName ?? '',
+        comment: selectedGift?.image ?? '',
+        commentType: FirebaseRes.image,
+        isVerify: user?.data?.isVerify == 1 ? true : false,
+        userLevel: user?.data?.userLevel ?? 1,
+      ));
     }
 
     notifyNewComment();
@@ -391,13 +410,13 @@ class BroadCastScreenViewModel extends BaseViewModel {
         },
         settingData: settingData,
         user: user,
-        onGiftSend: (gifts) async {
-          print("Gift selected: ${gifts?.image}");
+        onGiftSend: (gift) async {
+          print("Gift selected: ${gift?.image}");
           Navigator.pop(context);
 
           try {
             // Update diamond count for host
-            int value = liveStreamUser!.collectedDiamond! + gifts!.coinPrice!;
+            int value = liveStreamUser!.collectedDiamond! + gift!.coinPrice!;
             await db
                 .collection(FirebaseRes.liveStreamUser)
                 .doc(_channelName)
@@ -405,38 +424,71 @@ class BroadCastScreenViewModel extends BaseViewModel {
 
             // Send coins to host with gift ID for transaction tracking
             try {
-              await ApiService()
+              print("Sending coins to host: ${gift.coinPrice} coins, giftId: ${gift.id}");
+              final response = await ApiService()
                   .sendCoin(
-                    '${gifts.coinPrice}', 
+                    '${gift.coinPrice}', 
                     '${liveStreamUser?.userId}',
-                    giftId: '${gifts.id}'
-                  )
-                  .then((value) {
-                getProfile();
-              });
+                    giftId: '${gift.id}'
+                  );
+              
+              print("Coin sending response: ${response.status} - ${response.message}");
+              
+              if (response.status == 200) {
+                // Get updated profile to reflect wallet and level changes
+                print("Getting updated profile after gift transaction");
+                await getProfile();
+                
+                // Check if level increased by comparing before/after profiles
+                final int previousLevel = user?.data?.userLevel ?? 1;
+                await getProfile(); // Refresh again to ensure latest data
+                final int currentLevel = user?.data?.userLevel ?? 1;
+                
+                if (currentLevel > previousLevel) {
+                  print("Level up detected! $previousLevel → $currentLevel");
+                  LevelUpAnimationController().showLevelUp(previousLevel, currentLevel);
+                } else {
+                  print("No level change detected: still at level $currentLevel");
+                  // If server didn't update level, try explicit client update as fallback
+                  try {
+                    print("Sending explicit level points update as fallback");
+                    int levelPoints = LevelUtils.coinsToPoints(gift.coinPrice ?? 0);
+                    await ApiService().updateUserLevelPoints(levelPoints, 'live_gift')
+                        .then((value) {
+                      print("Explicit level update response: ${value.status} - ${value.message}");
+                      // Check if this caused a level up
+                      getProfile().then((_) {
+                        final int updatedLevel = user?.data?.userLevel ?? 1;
+                        if (updatedLevel > currentLevel) {
+                          print("Level up after explicit update! $currentLevel → $updatedLevel");
+                          LevelUpAnimationController().showLevelUp(currentLevel, updatedLevel);
+                        } else {
+                          print("Still at level $updatedLevel after explicit update");
+                        }
+                      });
+                    });
+                  } catch (levelError) {
+                    print("Error in explicit level points update: $levelError");
+                    // Get the latest profile anyway to ensure we have updated data
+                    await getProfile();
+                  }
+                }
+              } else {
+                print("Error in coin transaction: ${response.message}");
+              }
             } catch (e) {
               print("Error sending coins: $e");
               // Continue even if coin transaction fails
             }
 
+            // Store the selected gift for comment use
+            selectedGift = gift;
+            
             // Always send gift comment to trigger animation
-            print("Sending gift comment with image: ${gifts.image}");
+            print("Sending gift comment with image: ${gift.image}");
             await onCommentSend(
-                commentType: FirebaseRes.image, msg: gifts.image ?? '');
+                commentType: FirebaseRes.image, msg: null);
             print("Gift comment sent and animation should trigger");
-
-            // Create a direct animation trigger as well to ensure it shows
-            final commentId = DateTime.now().millisecondsSinceEpoch;
-            LiveStreamComment giftComment = LiveStreamComment(
-                id: commentId,
-                userName: user?.data?.userName ?? '',
-                userImage: user?.data?.userProfile ?? '',
-                userId: user?.data?.userId ?? -1,
-                fullName: user?.data?.fullName ?? '',
-                comment: gifts.image ?? '',
-                commentType: FirebaseRes.image,
-                isVerify: user?.data?.isVerify == 1 ? true : false);
-            GiftAnimationController().addGift(giftComment);
           } catch (e) {
             print("Error processing gift: $e");
             // Show error to user
@@ -450,13 +502,14 @@ class BroadCastScreenViewModel extends BaseViewModel {
     );
   }
 
-  void getProfile() async {
-    await ApiService()
-        .getProfile(SessionManager.userId.toString())
-        .then((value) {
+  Future<void> getProfile() async {
+    try {
+      User value = await ApiService().getProfile(SessionManager.userId.toString());
       user = value;
       notifyListeners();
-    });
+    } catch (e) {
+      print("Error in getProfile: $e");
+    }
   }
 
   void onUserTap(BuildContext context) async {
@@ -477,6 +530,31 @@ class BroadCastScreenViewModel extends BaseViewModel {
             ProfileScreen(type: 1, userId: '${liveStreamUser?.userId ?? -1}'),
       ),
     );
+  }
+  
+  Future<void> followUser(int userId) async {
+    try {
+      if (userId <= 0) return;
+      
+      // Call API to follow user
+      ApiService().followUnFollowUser(userId.toString()).then((value) {
+        if (value.status == 200) {
+          // Show success message using ScaffoldMessenger
+          Get.showSnackbar(
+            GetSnackBar(
+              message: 'User followed successfully',
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Update UI if needed
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      print('Error following user: $e');
+    }
   }
 
   void startWatch() {

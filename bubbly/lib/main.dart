@@ -22,6 +22,8 @@ import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/utils/theme.dart';
 import 'package:bubbly/view/chat_screen/chat_screen.dart';
+import 'package:bubbly/view/level/level_screen.dart';
+import 'package:bubbly/modal/user/user.dart';
 import 'package:bubbly/view/main/main_screen.dart';
 import 'package:bubbly/view/login/login_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -104,6 +106,9 @@ class _MyAppState extends State<MyApp> {
             fallbackLocale: const Locale(byDefaultLanguage),
             theme: myLoading.isDark ? darkTheme(context) : lightTheme(context),
             home: MyBubblyApp(),
+            routes: {
+              '/level': (context) => LevelScreen(userData: ModalRoute.of(context)!.settings.arguments as User?),
+            },
           );
         },
       ),

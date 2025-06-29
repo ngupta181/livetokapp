@@ -946,10 +946,28 @@ class UserController extends Controller
     private function invalidateUserCache($user_id)
     {
         // Clear the user profile cache using pattern matching
-        $cachePattern = CacheKeys::USER_PROFILE . $user_id . ':*';
-        $keys = Cache::getPrefix() . $cachePattern;
-        
         try {
+            // Handle if User object is passed
+            if (is_object($user_id) && method_exists($user_id, 'getAttribute') && $user_id->getAttribute('user_id')) {
+                Log::info("User object passed to invalidateUserCache, extracting user_id");
+                $user_id = $user_id->getAttribute('user_id');
+            }
+            
+            // Handle if array is passed
+            if (is_array($user_id)) {
+                // If an array is passed, convert to string for logging purposes
+                Log::info("Converting user_id array to string for cache invalidation");
+                $user_id = implode(',', $user_id);
+            }
+            
+            // Make sure user_id is a scalar value
+            $user_id = (string) $user_id;
+            
+            Log::info("Invalidating cache for user_id: " . $user_id);
+            
+            $cachePattern = CacheKeys::USER_PROFILE . $user_id . ':*';
+            $keys = Cache::getPrefix() . $cachePattern;
+            
             $redis = app('redis')->connection();
             $redis->eval("
                 local keys = redis.call('keys', ARGV[1])
@@ -968,9 +986,266 @@ class UserController extends Controller
             $profileCatKey = 'profile_category:' . $user_id;
             Cache::forget($profileCatKey);
             
-            Log::info("Invalidated user cache for user: " . $user_id);
+            Log::info("Successfully invalidated user cache for user: " . $user_id);
         } catch (\Exception $e) {
             Log::error("Error invalidating user cache: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
         }
+    }
+
+    public function getUserLevel(Request $request)
+    {
+        $user_id = $request->user()->user_id;
+        
+        if (empty($user_id)) {
+            return response()->json(['status' => 401, 'message' => "User ID is required"]);
+        }
+
+        $headers = $request->headers->all();
+        $verify_request_base = Admin::verify_request_base($headers);
+
+        if (isset($verify_request_base['status']) && $verify_request_base['status'] == 401) {
+            return response()->json(['status' => 401, 'message' => "Unauthorized Access!"]);
+        }
+
+        $user = User::where('user_id', $user_id)->first();
+        
+        if (empty($user)) {
+            return response()->json(['status' => 401, 'message' => "User not found"]);
+        }
+
+        // Calculate next level and points required
+        $currentLevel = $user->user_level ?? 1;
+        $currentPoints = $user->user_level_points ?? 0;
+        $nextLevel = $currentLevel + 1;
+        
+        // Define points needed for next level (this should match the logic in the Flutter app)
+        $pointsNeeded = [
+            1 => 0,
+            2 => 100,
+            3 => 200,
+            4 => 300,
+            5 => 500,
+            6 => 700,
+            7 => 1000,
+            8 => 1300,
+            9 => 1700,
+            10 => 2200,
+            20 => 10000,
+            30 => 30000,
+            40 => 60000,
+            50 => 100000,
+        ];
+        
+        // Find the next level threshold
+        while (!isset($pointsNeeded[$nextLevel]) && $nextLevel <= 50) {
+            $nextLevel++;
+        }
+        
+        // Calculate points needed for the next level
+        $pointsToNextLevel = isset($pointsNeeded[$nextLevel]) ? $pointsNeeded[$nextLevel] - $currentPoints : 0;
+        
+        // Determine rewards based on level
+        $levelBadge = null;
+        $avatarFrame = null;
+        $hasEntryEffect = false;
+        $entryEffectUrl = null;
+        
+        // Level ranges for rewards (should match Flutter app logic)
+        if ($currentLevel >= 1 && $currentLevel <= 9) {
+            $levelBadge = "level_badge_1";
+            $avatarFrame = "avatar_frame_1";
+        } elseif ($currentLevel >= 10 && $currentLevel <= 19) {
+            $levelBadge = "level_badge_10";
+            $avatarFrame = "avatar_frame_10";
+        } elseif ($currentLevel >= 20 && $currentLevel <= 29) {
+            $levelBadge = "level_badge_20";
+            $avatarFrame = "avatar_frame_20";
+        } elseif ($currentLevel >= 30 && $currentLevel <= 39) {
+            $levelBadge = "level_badge_30";
+            $avatarFrame = "avatar_frame_30";
+            $hasEntryEffect = true;
+            $entryEffectUrl = "entry_effect_30";
+        } elseif ($currentLevel >= 40 && $currentLevel <= 49) {
+            $levelBadge = "level_badge_40";
+            $avatarFrame = "avatar_frame_40";
+            $hasEntryEffect = true;
+            $entryEffectUrl = "entry_effect_30";
+        } elseif ($currentLevel >= 50) {
+            $levelBadge = "level_badge_50";
+            $avatarFrame = "avatar_frame_40";
+            $hasEntryEffect = true;
+            $entryEffectUrl = "entry_effect_30";
+        }
+        
+        // Check if rewards are active based on last activity
+        $isRewardsActive = true;
+        if ($user->last_level_activity_date) {
+            $lastActivity = Carbon::parse($user->last_level_activity_date);
+            $daysInactive = $lastActivity->diffInDays(Carbon::now());
+            if ($daysInactive > 14) {
+                $isRewardsActive = false;
+            }
+        }
+        
+        $levelData = [
+            'current_level' => $currentLevel,
+            'next_level' => $nextLevel <= 50 ? $nextLevel : null,
+            'current_points' => $currentPoints,
+            'points_to_next_level' => $pointsToNextLevel,
+            'level_badge' => $levelBadge,
+            'avatar_frame' => $avatarFrame,
+            'has_entry_effect' => $hasEntryEffect && $isRewardsActive,
+            'entry_effect_url' => $hasEntryEffect && $isRewardsActive ? $entryEffectUrl : null,
+            'total_points_earned' => $currentPoints,
+            'rewards_active' => $isRewardsActive
+        ];
+
+        return response()->json(['status' => 200, 'message' => "User level data retrieved successfully", 'data' => $levelData]);
+    }
+
+    public function updateUserLevelPoints(Request $request)
+    {
+        $headers = $request->headers->all();
+        $verify_request_base = Admin::verify_request_base($headers);
+
+        if (isset($verify_request_base['status']) && $verify_request_base['status'] == 401) {
+            return response()->json(['status' => 401, 'message' => "Unauthorized Access!"]);
+        }
+        
+        // Check if the user is authenticated or if user_id is provided in the request
+        if (Auth::check()) {
+            $user_id = Auth::user()->user_id;
+        } elseif ($request->has('user_id')) {
+            $user_id = $request->get('user_id');
+        } else {
+            return response()->json(['status' => 401, 'message' => "User ID is required"]);
+        }
+        
+        $rules = [
+            'points' => 'required|numeric',
+            'action_type' => 'required|string',
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            $messages = $validator->errors()->all();
+            $msg = $messages[0];
+            return response()->json(['status' => 401, 'message' => $msg]);
+        }
+        
+        $points = $request->get('points');
+        $actionType = $request->get('action_type');
+        
+        $user = User::where('user_id', $user_id)->first();
+        
+        if (empty($user)) {
+            return response()->json(['status' => 401, 'message' => "User not found"]);
+        }
+        
+        // Update level points
+        $currentPoints = $user->user_level_points ?? 0;
+        $newPoints = $currentPoints + $points;
+        
+        // Calculate new level based on points
+        $currentLevel = $user->user_level ?? 1;
+        $newLevel = $currentLevel;
+        
+        // Define level thresholds
+        $pointsNeeded = [
+            1 => 0,
+            2 => 100,
+            3 => 200,
+            4 => 300,
+            5 => 500,
+            6 => 700,
+            7 => 1000,
+            8 => 1300,
+            9 => 1700,
+            10 => 2200,
+            20 => 10000,
+            30 => 30000,
+            40 => 60000,
+            50 => 100000,
+        ];
+        
+        // Calculate new level based on total points
+        foreach ($pointsNeeded as $level => $threshold) {
+            if ($newPoints >= $threshold) {
+                $newLevel = $level;
+            } else {
+                break;
+            }
+        }
+        
+        // Update level rewards if level increased
+        $data = [
+            'user_level_points' => $newPoints,
+            'user_level' => $newLevel,
+            'last_level_activity_date' => Carbon::now()
+        ];
+        
+        // Update level badge and rewards if level changed
+        if ($newLevel !== $currentLevel) {
+            // Level ranges for rewards (should match Flutter app logic)
+            if ($newLevel >= 1 && $newLevel <= 9) {
+                $data['user_level_badge'] = "level_badge_1";
+                $data['user_avatar_frame'] = "avatar_frame_1";
+                $data['has_entry_effect'] = false;
+                $data['entry_effect_url'] = null;
+            } elseif ($newLevel >= 10 && $newLevel <= 19) {
+                $data['user_level_badge'] = "level_badge_10";
+                $data['user_avatar_frame'] = "avatar_frame_10";
+                $data['has_entry_effect'] = false;
+                $data['entry_effect_url'] = null;
+            } elseif ($newLevel >= 20 && $newLevel <= 29) {
+                $data['user_level_badge'] = "level_badge_20";
+                $data['user_avatar_frame'] = "avatar_frame_20";
+                $data['has_entry_effect'] = false;
+                $data['entry_effect_url'] = null;
+            } elseif ($newLevel >= 30 && $newLevel <= 39) {
+                $data['user_level_badge'] = "level_badge_30";
+                $data['user_avatar_frame'] = "avatar_frame_30";
+                $data['has_entry_effect'] = true;
+                $data['entry_effect_url'] = "entry_effect_30";
+            } elseif ($newLevel >= 40 && $newLevel <= 49) {
+                $data['user_level_badge'] = "level_badge_40";
+                $data['user_avatar_frame'] = "avatar_frame_40";
+                $data['has_entry_effect'] = true;
+                $data['entry_effect_url'] = "entry_effect_30";
+            } elseif ($newLevel >= 50) {
+                $data['user_level_badge'] = "level_badge_50";
+                $data['user_avatar_frame'] = "avatar_frame_40";
+                $data['has_entry_effect'] = true;
+                $data['entry_effect_url'] = "entry_effect_30";
+            }
+        }
+        
+        // Update user data
+        $result = User::where('user_id', $user_id)->update($data);
+        
+        if (!$result) {
+            return response()->json(['status' => 401, 'message' => "Error updating user level"]);
+        }
+        
+        // Invalidate user profile cache after update
+        $this->invalidateUserCache($user_id);
+        
+        // Get updated user data
+        $updatedUser = User::where('user_id', $user_id)->first();
+        
+        return response()->json([
+            'status' => 200, 
+            'message' => "User level updated successfully", 
+            'data' => [
+                'current_level' => $updatedUser->user_level,
+                'previous_level' => $currentLevel,
+                'current_points' => $updatedUser->user_level_points,
+                'points_added' => $points,
+                'action_type' => $actionType,
+                'leveled_up' => $newLevel > $currentLevel
+            ]
+        ]);
     }
 }

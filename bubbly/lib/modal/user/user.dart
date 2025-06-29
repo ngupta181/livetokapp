@@ -1,3 +1,5 @@
+import 'package:bubbly/utils/level_utils.dart';
+
 class User {
   User({
     int? status,
@@ -68,6 +70,14 @@ class UserData {
     String? profileCategoryName,
     int? isFollowing,
     int? blockOrNot,
+    // Level system properties
+    int? userLevel,
+    int? userLevelPoints,
+    String? userLevelBadge,
+    String? userAvatarFrame,
+    bool? hasEntryEffect,
+    String? entryEffectUrl,
+    String? lastLevelActivityDate,
   }) {
     _userId = userId;
     _fullName = fullName;
@@ -102,6 +112,14 @@ class UserData {
     _profileCategoryName = profileCategoryName;
     _isFollowing = isFollowing;
     _blockOrNot = blockOrNot;
+    // Level system properties
+    _userLevel = userLevel ?? 1;
+    _userLevelPoints = userLevelPoints ?? 0;
+    _userLevelBadge = userLevelBadge;
+    _userAvatarFrame = userAvatarFrame;
+    _hasEntryEffect = hasEntryEffect ?? false;
+    _entryEffectUrl = entryEffectUrl;
+    _lastLevelActivityDate = lastLevelActivityDate;
   }
 
   UserData.fromJson(dynamic json) {
@@ -139,6 +157,14 @@ class UserData {
     _profileCategoryName = json['profile_category_name'];
     _isFollowing = json['is_following'];
     _blockOrNot = json['block_or_not'];
+    // Level system properties
+    _userLevel = json['user_level'] ?? 1;
+    _userLevelPoints = json['user_level_points'] ?? 0;
+    _userLevelBadge = json['user_level_badge'];
+    _userAvatarFrame = json['user_avatar_frame'];
+    _hasEntryEffect = json['has_entry_effect'] == 1;
+    _entryEffectUrl = json['entry_effect_url'];
+    _lastLevelActivityDate = json['last_level_activity_date'];
   }
   int? _userId;
   String? _fullName;
@@ -173,6 +199,14 @@ class UserData {
   String? _profileCategoryName;
   int? _isFollowing;
   int? _blockOrNot;
+  // Level system properties
+  int? _userLevel;
+  int? _userLevelPoints;
+  String? _userLevelBadge;
+  String? _userAvatarFrame;
+  bool? _hasEntryEffect;
+  String? _entryEffectUrl;
+  String? _lastLevelActivityDate;
 
   int? get userId => _userId;
   String? get fullName => _fullName;
@@ -207,6 +241,14 @@ class UserData {
   String? get profileCategoryName => _profileCategoryName;
   int? get isFollowing => _isFollowing;
   int? get blockOrNot => _blockOrNot;
+  // Level system getters
+  int? get userLevel => _userLevel;
+  int? get userLevelPoints => _userLevelPoints;
+  String? get userLevelBadge => _userLevelBadge;
+  String? get userAvatarFrame => _userAvatarFrame;
+  bool? get hasEntryEffect => _hasEntryEffect;
+  String? get entryEffectUrl => _entryEffectUrl;
+  String? get lastLevelActivityDate => _lastLevelActivityDate;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
@@ -243,6 +285,14 @@ class UserData {
     map['profile_category_name'] = _profileCategoryName;
     map['is_following'] = _isFollowing;
     map['block_or_not'] = _blockOrNot;
+    // Level system properties
+    map['user_level'] = _userLevel;
+    map['user_level_points'] = _userLevelPoints;
+    map['user_level_badge'] = _userLevelBadge;
+    map['user_avatar_frame'] = _userAvatarFrame;
+    map['has_entry_effect'] = _hasEntryEffect;
+    map['entry_effect_url'] = _entryEffectUrl;
+    map['last_level_activity_date'] = _lastLevelActivityDate;
     return map;
   }
 
@@ -256,5 +306,26 @@ class UserData {
 
   void removeFollowerCount() {
     _followersCount = _followersCount! - 1;
+  }
+  
+  // Level system methods
+  void addLevelPoints(int points) {
+    _userLevelPoints = (_userLevelPoints ?? 0) + points;
+    updateUserLevel();
+    _lastLevelActivityDate = DateTime.now().toIso8601String();
+  }
+  
+  void updateUserLevel() {
+        if (_userLevelPoints != null) {
+      int newLevel = LevelUtils.calculateLevel(_userLevelPoints!);
+      if (newLevel != _userLevel) {
+        _userLevel = newLevel;
+        LevelRange levelRange = LevelUtils.getLevelRange(newLevel);
+        _userLevelBadge = levelRange.badgeAsset;
+        _userAvatarFrame = levelRange.frameAsset;
+        _hasEntryEffect = levelRange.hasEntryEffect;
+        _entryEffectUrl = levelRange.entryEffectAsset;
+      }
+    }
   }
 }

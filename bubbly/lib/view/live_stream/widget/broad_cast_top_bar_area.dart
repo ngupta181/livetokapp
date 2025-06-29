@@ -5,6 +5,8 @@ import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/view/live_stream/model/broad_cast_screen_view_model.dart';
 import 'package:bubbly/view/live_stream/widget/blur_tab.dart';
+import 'package:bubbly/view/live_stream/widget/top_viewers_row.dart';
+import 'package:bubbly/view/live_stream/widget/viewers_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -48,12 +50,22 @@ class BroadCastTopBarArea extends StatelessWidget {
               Spacer(
                 flex: 2,
               ),
-              Text(
-                "${NumberFormat.compact(locale: 'en').format(double.parse('${model.liveStreamUser?.watchingCount ?? '0'}'))} Viewers",
-                style: TextStyle(
-                    color: ColorRes.white,
-                    fontFamily: FontRes.fNSfUiMedium,
-                    fontSize: 15),
+              InkWell(
+                onTap: () {
+                  _showViewersDialog(context);
+                },
+                child: model.commentList.isNotEmpty
+                    ? TopViewersRow(
+                        viewers: model.commentList,
+                        onViewAllTap: () => _showViewersDialog(context),
+                      )
+                    : Text(
+                        "${NumberFormat.compact(locale: 'en').format(double.parse('${model.liveStreamUser?.watchingCount ?? '0'}'))} Viewers",
+                        style: TextStyle(
+                            color: ColorRes.white,
+                            fontFamily: FontRes.fNSfUiMedium,
+                            fontSize: 15),
+                      ),
               ),
               Spacer(),
               InkWell(
@@ -135,6 +147,18 @@ class BroadCastTopBarArea extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showViewersDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ViewersDialog(
+        viewers: model.commentList,
+        onFollowTap: null, // Host doesn't need to follow viewers
+      ),
     );
   }
 }

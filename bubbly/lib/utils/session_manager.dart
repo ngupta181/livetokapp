@@ -12,6 +12,11 @@ class SessionManager {
   static int userId = -1;
   static String accessToken = '';
 
+  // Static method to get the current user ID
+  static int getUserId() {
+    return userId;
+  }
+
   Future initPref() async {
     sharedPreferences = await _pref;
   }

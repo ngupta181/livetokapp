@@ -2,6 +2,55 @@
 
 ## Summary Changelog 
 
+**Date:** June 29 2025
+
+### User Level System Implementation
+
+#### New Files:
+- `bubbly/icons/avatar_frame_1.png` - Level 1 avatar frame
+- `bubbly/icons/avatar_frame_10.png` - Level 10 avatar frame
+- `bubbly/icons/avatar_frame_20.png` - Level 20 avatar frame
+- `bubbly/icons/avatar_frame_30.png` - Level 30 avatar frame
+- `bubbly/icons/avatar_frame_40.png` - Level 40 avatar frame
+- `bubbly/icons/avatar_frame_50.png` - Level 50 avatar frame
+- `bubbly/lib/modal/user/user_level.dart` - User level model
+- `bubbly/lib/utils/level_utils.dart` - Level calculation utilities
+- `bubbly/lib/view/level/level_screen.dart` - Level information screen
+- `bubbly/lib/view/live_stream/widget/gift_banner.dart` - Gift banner display
+- `bubbly/lib/view/live_stream/widget/gift_queue_display.dart` - Gift queue management
+- `bubbly/lib/view/live_stream/widget/level_up_animation.dart` - Level up animation
+- `bubbly/lib/view/live_stream/widget/level_up_animation_controller.dart` - Level animation controller
+- `bubbly/lib/view/live_stream/widget/live_stream_comment_item.dart` - Live stream comment item
+- `bubbly/lib/view/live_stream/widget/top_viewers_row.dart` - Top viewers display
+- `bubbly/lib/view/live_stream/widget/viewers_dialog.dart` - Viewers dialog
+- `shortzz_backend/database/migrations/2023_09_15_000000_add_user_level_fields.php` - Database migration for user levels
+
+#### Modified Files:
+- `bubbly/lib/api/api_service.dart` - Added user level API integration
+- `bubbly/lib/main.dart` - Main application updates for level system
+- `bubbly/lib/modal/live_stream/live_stream.dart` - Updated for level integration
+- `bubbly/lib/modal/user/user.dart` - Added user level properties
+- `bubbly/lib/utils/const_res.dart` - Added level-related constants
+- `bubbly/lib/utils/session_manager.dart` - Updated to store user level data
+- `bubbly/lib/view/followers/follower_screen.dart` - Added level display
+- `bubbly/lib/view/live_stream/model/broad_cast_screen_view_model.dart` - Updated for level system
+- `bubbly/lib/view/live_stream/screen/audience_screen.dart` - Added level features
+- `bubbly/lib/view/live_stream/screen/broad_cast_screen.dart` - Updated for level system
+- `bubbly/lib/view/live_stream/widget/audience_top_bar.dart` - Added level display
+- `bubbly/lib/view/live_stream/widget/broad_cast_top_bar_area.dart` - Updated for level system
+- `bubbly/lib/view/live_stream/widget/full_screen_gift_animation.dart` - Enhanced with level info
+- `bubbly/lib/view/live_stream/widget/gift_animation.dart` - Updated for level system
+- `bubbly/lib/view/live_stream/widget/gift_animation_controller.dart` - Updated for level animations
+- `bubbly/lib/view/live_stream/widget/gift_display.dart` - Added level information
+- `bubbly/lib/view/live_stream/widget/live_stream_chat_list.dart` - Updated for level display
+- `bubbly/lib/view/profile/widget/profile_card.dart` - Added level display
+- `bubbly/lib/view/send_bubble/dialog_send_bubble.dart` - Updated for level system
+- `shortzz_backend/app/Http/Controllers/API/UserController.php` - Added level management
+- `shortzz_backend/app/Http/Controllers/API/WalletController.php` - Updated for level rewards
+- `shortzz_backend/routes/api.php` - Added level-related endpoints
+
+---------------------------------------------------------------------------------------------------------------
+
 **Date:** June 23 2025
 
 ### Redis Caching Implementation

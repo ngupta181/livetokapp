@@ -11,12 +11,24 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 class FollowerScreen extends StatelessWidget {
-  final UserData? userData;
+  final dynamic userData; // Can be either UserData or User
 
   FollowerScreen(this.userData);
+  
+  // Helper method to get UserData regardless of input type
+  UserData? _getUserData() {
+    if (userData is User) {
+      return (userData as User).data;
+    } else if (userData is UserData) {
+      return userData as UserData;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final UserData? user = _getUserData();
+    
     PageController? _pageController = PageController(
         initialPage: Provider.of<MyLoading>(context, listen: false)
             .getFollowerPageIndex);
@@ -57,13 +69,13 @@ class FollowerScreen extends StatelessWidget {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(500),
                             child: Image.network(
-                              ConstRes.itemBaseUrl + userData!.userProfile!,
+                              ConstRes.itemBaseUrl + user!.userProfile!,
                               fit: BoxFit.cover,
                               height: 30,
                               width: 30,
                               errorBuilder: (context, error, stackTrace) {
                                 return ImagePlaceHolder(
-                                  name: userData?.fullName,
+                                  name: user?.fullName,
                                   heightWeight: 25,
                                   fontSize: 20,
                                 );
@@ -74,7 +86,7 @@ class FollowerScreen extends StatelessWidget {
                             width: 5,
                           ),
                           Text(
-                            '@${userData!.userName}',
+                            '@${user!.userName}',
                             style: TextStyle(
                                 fontSize: 20, fontFamily: FontRes.fNSfUiBold),
                           ),
@@ -113,7 +125,7 @@ class FollowerScreen extends StatelessWidget {
                             borderRadius: BorderRadius.all(Radius.circular(5))),
                         child: Center(
                           child: Text(
-                            '${userData!.followersCount} ${LKey.followers.tr}',
+                            '${user!.followersCount} ${LKey.followers.tr}',
                             style: TextStyle(
                               color: value.getFollowerPageIndex == 0
                                   ? ColorRes.colorTheme
@@ -139,7 +151,7 @@ class FollowerScreen extends StatelessWidget {
                             borderRadius: BorderRadius.all(Radius.circular(5))),
                         child: Center(
                           child: Text(
-                            '${userData!.followingCount} ${LKey.following.tr}',
+                            '${user!.followingCount} ${LKey.following.tr}',
                             style: TextStyle(
                               color: value.getFollowerPageIndex == 1
                                   ? ColorRes.colorTheme
@@ -161,8 +173,8 @@ class FollowerScreen extends StatelessWidget {
               controller: _pageController,
               physics: BouncingScrollPhysics(),
               children: [
-                ItemFollowersPage(userData?.userId, 0),
-                ItemFollowersPage(userData?.userId, 1),
+                ItemFollowersPage(user?.userId, 0),
+                ItemFollowersPage(user?.userId, 1),
               ],
               onPageChanged: (value) {
                 Provider.of<MyLoading>(context, listen: false)
