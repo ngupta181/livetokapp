@@ -1,12 +1,14 @@
 import 'package:bubbly/api/api_service.dart';
 import 'package:bubbly/custom_view/common_ui.dart';
 import 'package:bubbly/custom_view/data_not_found.dart';
+import 'package:bubbly/custom_view/image_place_holder.dart';
 import 'package:bubbly/languages/languages_keys.dart';
 import 'package:bubbly/modal/comment/comment.dart';
 import 'package:bubbly/modal/search/search_user.dart';
 import 'package:bubbly/modal/user_video/user_video.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/const_res.dart';
+import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/key_res.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/utils/session_manager.dart';
@@ -109,13 +111,36 @@ class _CommentScreenState extends State<CommentScreen> {
     // Set new timer
     _debounceTimer = Timer(Duration(milliseconds: 300), () {
       if (query.length > 0) {
+        print('Searching for users with query: "$query"');
         ApiService().getSearchUser('0', '10', query).then((response) {
           if (mounted && response.data != null) {
+            print('Search results for "$query": ${response.data!.length} users found');
+            for (var user in response.data!) {
+              print('User: ${user.fullName} (@${user.userName}) - Profile: "${user.userProfile}"');
+              if (user.userProfile != null && user.userProfile!.isNotEmpty) {
+                String fullUrl = ConstRes.itemBaseUrl + user.userProfile!;
+                print('Full profile URL: $fullUrl');
+              } else {
+                print('No profile image for user: ${user.userName}');
+              }
+            }
             setState(() {
               suggestedUsers = response.data!;
               showMentionSuggestions = suggestedUsers.isNotEmpty;
             });
+          } else {
+            print('No search results for "$query"');
+            setState(() {
+              suggestedUsers = [];
+              showMentionSuggestions = false;
+            });
           }
+        }).catchError((error) {
+          print('Error searching users: $error');
+          setState(() {
+            suggestedUsers = [];
+            showMentionSuggestions = false;
+          });
         });
       }
     });
@@ -154,6 +179,25 @@ class _CommentScreenState extends State<CommentScreen> {
         TextPosition(offset: start + (user.userName?.length ?? 0) + 2), // Fixed: Cast to int not needed since length is already int
       );
       showMentionSuggestions = false;
+    });
+  }
+
+  void _navigateToUserProfile(SearchUserData user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileScreen(
+          type: 1, // Type 1 for other user's profile
+          userId: user.userId.toString(),
+        ),
+      ),
+    );
+  }
+
+  void _clearMentionSuggestions() {
+    setState(() {
+      showMentionSuggestions = false;
+      suggestedUsers = [];
     });
   }
 
@@ -221,24 +265,94 @@ class _CommentScreenState extends State<CommentScreen> {
               if (showMentionSuggestions)
                 Container(
                   constraints: BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: suggestedUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = suggestedUsers[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: NetworkImage(
-                            ConstRes.getImageUrl(user.userProfile),
-                          ),
+                  decoration: BoxDecoration(
+                    color: myLoading.isDark ? ColorRes.colorPrimaryDark : ColorRes.white,
+                    border: Border(
+                      top: BorderSide(color: ColorRes.colorTextLight.withOpacity(0.2)),
+                      bottom: BorderSide(color: ColorRes.colorTextLight.withOpacity(0.2)),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header with close button
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Mention someone',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ColorRes.colorTextLight,
+                                fontFamily: FontRes.fNSfUiMedium,
+                              ),
+                            ),
+                            Spacer(),
+                            InkWell(
+                              onTap: _clearMentionSuggestions,
+                              child: Icon(Icons.close, size: 18, color: ColorRes.colorTextLight),
+                            ),
+                          ],
                         ),
-                        title: Text(user.fullName ?? ''),
-                        subtitle: Text('@${user.userName}'),
-                        onTap: () => _insertMention(user),
-                              );
-                            },
-                          ),
-              ),
+                      ),
+                      Divider(height: 1, color: ColorRes.colorTextLight.withOpacity(0.2)),
+                      // User list
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: suggestedUsers.length,
+                          itemBuilder: (context, index) {
+                            final user = suggestedUsers[index];
+                            return ListTile(
+                              dense: true,
+                              leading: ClipOval(
+                                child: Image.network(
+                                  ConstRes.itemBaseUrl +
+                                      (user.userProfile == null ||
+                                              user.userProfile!.isEmpty
+                                          ? ''
+                                          : user.userProfile ?? ''),
+                                  height: 40,
+                                  width: 40,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('Error loading profile image for ${user.userName}: $error');
+                                    return ImagePlaceHolder(
+                                      name: user.fullName,
+                                      heightWeight: 40,
+                                      fontSize: 20,
+                                    );
+                                  },
+                                ),
+                              ),
+                              title: Text(
+                                user.fullName ?? '',
+                                style: TextStyle(
+                                  fontFamily: FontRes.fNSfUiMedium,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '@${user.userName}',
+                                style: TextStyle(
+                                  color: ColorRes.colorTextLight,
+                                  fontFamily: FontRes.fNSfUiMedium,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(Icons.person, size: 20, color: ColorRes.colorTheme),
+                                onPressed: () => _navigateToUserProfile(user),
+                              ),
+                              onTap: () => _insertMention(user),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (isReplying)
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
