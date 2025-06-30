@@ -9,19 +9,21 @@ import 'package:get/get.dart';
 class ViewersDialog extends StatelessWidget {
   final List<LiveStreamComment> viewers;
   final Function(LiveStreamComment)? onFollowTap;
+  final int? hostUserId;
 
   const ViewersDialog({
     Key? key,
     required this.viewers,
     this.onFollowTap,
+    this.hostUserId,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Filter unique viewers by userId
+    // Filter unique viewers by userId and exclude host
     final Map<int?, LiveStreamComment> uniqueViewers = {};
     for (var viewer in viewers) {
-      if (viewer.userId != null) {
+      if (viewer.userId != null && viewer.userId != hostUserId) {
         uniqueViewers[viewer.userId] = viewer;
       }
     }
