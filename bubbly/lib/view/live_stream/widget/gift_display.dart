@@ -10,11 +10,15 @@ import 'package:bubbly/view/live_stream/widget/gift_animation_controller.dart';
 class GiftDisplay extends StatefulWidget {
   final List<LiveStreamComment> commentList;
   final SettingData? settingData;
+  final bool isGiftSheetOpen;
+  final bool isGiftSheetMinimized;
 
   const GiftDisplay({
     Key? key,
     required this.commentList,
     this.settingData,
+    this.isGiftSheetOpen = false,
+    this.isGiftSheetMinimized = false,
   }) : super(key: key);
 
   @override
@@ -144,9 +148,20 @@ class _GiftDisplayState extends State<GiftDisplay> {
                       if (_debugMode) {
                         print("Using REGULAR animation for gift ${gift.id}");
                       }
+                      
+                      // Calculate position based on gift sheet state
+                      double topPosition = MediaQuery.of(context).size.height / 2 - 40;
+                      if (widget.isGiftSheetOpen && !widget.isGiftSheetMinimized) {
+                        // Move gift animation up when gift sheet is expanded
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        final giftSheetHeight = screenHeight * 0.45;
+                        final availableHeight = screenHeight - giftSheetHeight;
+                        topPosition = availableHeight / 2 - 40; // Center in available space
+                      }
+                      
                       // Regular animation
                       return Positioned(
-                        top: MediaQuery.of(context).size.height / 2 - 40,
+                        top: topPosition,
                         left: 0,
                         right: 0,
                         child: Center(

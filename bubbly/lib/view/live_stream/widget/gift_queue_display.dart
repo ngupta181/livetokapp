@@ -26,11 +26,15 @@ class GiftQueueItem {
 class GiftQueueDisplay extends StatefulWidget {
   final List<LiveStreamComment> commentList;
   final SettingData? settingData;
+  final bool isGiftSheetOpen;
+  final bool isGiftSheetMinimized;
 
   const GiftQueueDisplay({
     Key? key,
     required this.commentList,
     this.settingData,
+    this.isGiftSheetOpen = false,
+    this.isGiftSheetMinimized = false,
   }) : super(key: key);
 
   @override
@@ -42,12 +46,23 @@ class _GiftQueueDisplayState extends State<GiftQueueDisplay>
   final Queue<GiftQueueItem> _giftQueue = Queue();
   final Map<String, AnimationController> _controllers = {};
   final Map<int, bool> _processedGifts = {};
+  final Map<String, Timer> _removalTimers = {};
   Timer? _processingTimer;
   
   // For handling full-screen animations
   final List<LiveStreamComment> _fullScreenGifts = [];
   final Map<int, bool> _processedFullScreenGifts = {};
-  bool _debugMode = false;
+  bool _debugMode = true; // Set to true for debugging combo logic
+
+  // Combo detection window in seconds
+  static const int _comboWindowSeconds = 5;
+
+  // Method to toggle debug mode
+  void toggleDebugMode() {
+    setState(() {
+      _debugMode = !_debugMode;
+    });
+  }
 
   @override
   void initState() {
@@ -61,6 +76,7 @@ class _GiftQueueDisplayState extends State<GiftQueueDisplay>
   void dispose() {
     _processingTimer?.cancel();
     _controllers.forEach((_, controller) => controller.dispose());
+    _removalTimers.forEach((_, timer) => timer.cancel());
     super.dispose();
   }
 
@@ -127,38 +143,107 @@ class _GiftQueueDisplayState extends State<GiftQueueDisplay>
 
   void _addGiftToQueue(LiveStreamComment comment) {
     setState(() {
-      final newGift = GiftQueueItem(
-        comment: comment,
-        timestamp: DateTime.now(),
-      );
+      // Create a combo key based on user ID and gift image
+      String comboKey = '${comment.userId}_${comment.comment}';
       
-      _giftQueue.add(newGift);
+             // Check if there's already a gift from the same user with the same gift type
+       GiftQueueItem? existingGift;
+       if (_debugMode) {
+         print("GiftQueueDisplay: Checking for combo - User: ${comment.userId}, Gift: ${comment.comment}");
+         print("Current queue size: ${_giftQueue.length}");
+       }
+       
+       for (var gift in _giftQueue) {
+         if (gift.comment.userId == comment.userId && 
+             gift.comment.comment == comment.comment) {
+           // Check if it's within the combo time window
+           final timeDiff = DateTime.now().difference(gift.timestamp).inSeconds;
+           if (_debugMode) {
+             print("Found matching gift, time diff: ${timeDiff}s (window: ${_comboWindowSeconds}s)");
+           }
+           if (timeDiff <= _comboWindowSeconds) {
+             existingGift = gift;
+             if (_debugMode) {
+               print("COMBO MATCH FOUND! Current count: ${gift.comboCount}");
+             }
+             break;
+           }
+         }
+       }
       
-      // Create animation controller
-      final controller = AnimationController(
-        duration: const Duration(milliseconds: 600),
-        vsync: this,
-      );
-      _controllers[newGift.id] = controller;
-      controller.forward();
-      
-      // Limit queue size
-      while (_giftQueue.length > 4) {
-        final removed = _giftQueue.removeFirst();
-        _controllers[removed.id]?.dispose();
-        _controllers.remove(removed.id);
-      }
-      
-      // Auto remove after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          setState(() {
-            _giftQueue.removeWhere((item) => item.id == newGift.id);
-            _controllers[newGift.id]?.dispose();
-            _controllers.remove(newGift.id);
-          });
+      if (existingGift != null) {
+        // This is a combo! Increment the count
+        existingGift.comboCount++;
+        
+        if (_debugMode) {
+          print("GiftQueueDisplay: Combo detected! Count: ${existingGift.comboCount}");
         }
-      });
+        
+        // Cancel the existing removal timer
+        _removalTimers[existingGift.id]?.cancel();
+        
+                 // Create combo count animation (scale effect)
+         final controller = _controllers[existingGift.id];
+         if (controller != null) {
+           controller.reset();
+           controller.forward();
+         } else if (_debugMode) {
+           print("Warning: No controller found for gift ${existingGift.id}");
+         }
+        
+        // Set a new removal timer
+        _removalTimers[existingGift.id] = Timer(const Duration(seconds: 5), () {
+          if (mounted) {
+            setState(() {
+              _giftQueue.removeWhere((item) => item.id == existingGift!.id);
+              _controllers[existingGift!.id]?.dispose();
+              _controllers.remove(existingGift!.id);
+              _removalTimers.remove(existingGift!.id);
+            });
+          }
+        });
+      } else {
+        // Create new gift item
+        final newGift = GiftQueueItem(
+          comment: comment,
+          timestamp: DateTime.now(),
+        );
+        
+        _giftQueue.add(newGift);
+        
+        if (_debugMode) {
+          print("GiftQueueDisplay: New gift added from ${comment.fullName}");
+        }
+        
+        // Create animation controller
+        final controller = AnimationController(
+          duration: const Duration(milliseconds: 600),
+          vsync: this,
+        );
+        _controllers[newGift.id] = controller;
+        controller.forward();
+        
+        // Limit queue size
+        while (_giftQueue.length > 4) {
+          final removed = _giftQueue.removeFirst();
+          _controllers[removed.id]?.dispose();
+          _controllers.remove(removed.id);
+          _removalTimers[removed.id]?.cancel();
+          _removalTimers.remove(removed.id);
+        }
+        
+        // Set removal timer
+        _removalTimers[newGift.id] = Timer(const Duration(seconds: 5), () {
+          if (mounted) {
+            setState(() {
+              _giftQueue.removeWhere((item) => item.id == newGift.id);
+              _controllers[newGift.id]?.dispose();
+              _controllers.remove(newGift.id);
+              _removalTimers.remove(newGift.id);
+            });
+          }
+        });
+      }
     });
   }
 
@@ -166,11 +251,25 @@ class _GiftQueueDisplayState extends State<GiftQueueDisplay>
   Widget build(BuildContext context) {
     final gifts = _giftQueue.toList();
     
+    // Calculate bottom position based on gift sheet state
+    double bottomPosition = 280; // Default position
+    if (widget.isGiftSheetOpen) {
+      if (widget.isGiftSheetMinimized) {
+        // When minimized, gift sheet is about 100px high
+        bottomPosition = 120;
+      } else {
+        // When expanded, gift sheet is 45% of screen height
+        final screenHeight = MediaQuery.of(context).size.height;
+        final giftSheetHeight = screenHeight * 0.45;
+        bottomPosition = giftSheetHeight + 20; // Add some padding
+      }
+    }
+    
     return Stack(
       children: [
         // Regular gift queue display
         Positioned(
-          bottom: 280,
+          bottom: bottomPosition,
           left: 15,
           right: MediaQuery.of(context).size.width * 0.35,
           child: Column(
@@ -276,25 +375,61 @@ class _GiftQueueDisplayState extends State<GiftQueueDisplay>
               ),
             ),
           ),
-          // Combo
+          // Combo with enhanced animation
           if (giftItem.comboCount > 1)
             Container(
               margin: EdgeInsets.only(left: 5),
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: ColorRes.colorPink,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'x${giftItem.comboCount}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: _controllers[giftItem.id] != null 
+                ? ScaleTransition(
+                    scale: Tween<double>(
+                      begin: 1.0,
+                      end: 1.3,
+                    ).animate(CurvedAnimation(
+                      parent: _controllers[giftItem.id]!,
+                      curve: Curves.elasticOut,
+                    )),
+                                        child: _buildComboContainer(giftItem.comboCount),
+                  )
+                : _buildComboContainer(giftItem.comboCount),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildComboContainer(int comboCount) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            ColorRes.colorPink,
+            Colors.deepOrange,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: ColorRes.colorPink.withOpacity(0.5),
+            blurRadius: 4,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Text(
+        'x$comboCount',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 2,
+              offset: Offset(1, 1),
+            ),
+          ],
+        ),
       ),
     );
   }

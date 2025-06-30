@@ -76,6 +76,19 @@ class BroadCastScreenViewModel extends BaseViewModel {
   int maxMinutes = 0;
   Gifts? selectedGift;
 
+  // Gift sheet state tracking
+  bool _isGiftSheetOpen = false;
+  bool _isGiftSheetMinimized = false;
+  
+  bool get isGiftSheetOpen => _isGiftSheetOpen;
+  bool get isGiftSheetMinimized => _isGiftSheetMinimized;
+
+  void _onGiftSheetStateChanged(bool isOpen, bool isMinimized) {
+    _isGiftSheetOpen = isOpen;
+    _isGiftSheetMinimized = isMinimized;
+    notifyListeners();
+  }
+
   void rtcEngineHandlerCall() {
     engineEventHandler = RtcEngineEventHandler(
       onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
@@ -410,9 +423,10 @@ class BroadCastScreenViewModel extends BaseViewModel {
         },
         settingData: settingData,
         user: user,
+        onGiftSheetStateChanged: _onGiftSheetStateChanged,
         onGiftSend: (gift) async {
           print("Gift selected: ${gift?.image}");
-          Navigator.pop(context);
+          // Remove Navigator.pop(context) to allow continuous gift sending
 
           try {
             // Update diamond count for host

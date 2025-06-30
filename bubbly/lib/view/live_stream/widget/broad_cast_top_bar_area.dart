@@ -158,6 +158,7 @@ class BroadCastTopBarArea extends StatelessWidget {
       builder: (context) => ViewersDialog(
         viewers: model.commentList,
         onFollowTap: null, // Host doesn't need to follow viewers
+        hostUserId: model.registrationUser?.data?.userId,
       ),
     );
   }

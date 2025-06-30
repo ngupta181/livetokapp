@@ -227,6 +227,7 @@ class AudienceTopBar extends StatelessWidget {
           model.followUser(viewer.userId ?? -1);
           Navigator.pop(context);
         },
+        hostUserId: model.liveStreamUser?.userId,
       ),
     );
   }

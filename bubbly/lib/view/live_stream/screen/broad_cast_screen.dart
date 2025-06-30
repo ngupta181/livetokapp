@@ -84,6 +84,8 @@ class _BroadCastScreenState extends State<BroadCastScreen> {
                 GiftQueueDisplay(
                   commentList: model.commentList,
                   settingData: model.settingData,
+                  isGiftSheetOpen: model.isGiftSheetOpen,
+                  isGiftSheetMinimized: model.isGiftSheetMinimized,
                 ),
                 
                 // Level up animation display
