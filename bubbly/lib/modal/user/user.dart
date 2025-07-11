@@ -165,6 +165,13 @@ class UserData {
     _hasEntryEffect = json['has_entry_effect'] == 1;
     _entryEffectUrl = json['entry_effect_url'];
     _lastLevelActivityDate = json['last_level_activity_date'];
+    
+    // Location properties
+    _userCountry = json['user_country'];
+    _userState = json['user_state'];
+    _userCity = json['user_city'];
+    _userIp = json['user_ip'];
+    _timezone = json['timezone'];
   }
   int? _userId;
   String? _fullName;
@@ -207,6 +214,13 @@ class UserData {
   bool? _hasEntryEffect;
   String? _entryEffectUrl;
   String? _lastLevelActivityDate;
+  
+  // Location properties
+  String? _userCountry;
+  String? _userState;
+  String? _userCity;
+  String? _userIp;
+  String? _timezone;
 
   int? get userId => _userId;
   String? get fullName => _fullName;
@@ -241,6 +255,7 @@ class UserData {
   String? get profileCategoryName => _profileCategoryName;
   int? get isFollowing => _isFollowing;
   int? get blockOrNot => _blockOrNot;
+  
   // Level system getters
   int? get userLevel => _userLevel;
   int? get userLevelPoints => _userLevelPoints;
@@ -249,6 +264,13 @@ class UserData {
   bool? get hasEntryEffect => _hasEntryEffect;
   String? get entryEffectUrl => _entryEffectUrl;
   String? get lastLevelActivityDate => _lastLevelActivityDate;
+  
+  // Location getters
+  String? get userCountry => _userCountry;
+  String? get userState => _userState;
+  String? get userCity => _userCity;
+  String? get userIp => _userIp;
+  String? get timezone => _timezone;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
@@ -290,9 +312,17 @@ class UserData {
     map['user_level_points'] = _userLevelPoints;
     map['user_level_badge'] = _userLevelBadge;
     map['user_avatar_frame'] = _userAvatarFrame;
-    map['has_entry_effect'] = _hasEntryEffect;
+    map['has_entry_effect'] = _hasEntryEffect == true ? 1 : 0;
     map['entry_effect_url'] = _entryEffectUrl;
     map['last_level_activity_date'] = _lastLevelActivityDate;
+    
+    // Location properties
+    map['user_country'] = _userCountry;
+    map['user_state'] = _userState;
+    map['user_city'] = _userCity;
+    map['user_ip'] = _userIp;
+    map['timezone'] = _timezone;
+    
     return map;
   }
 

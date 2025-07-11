@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
@@ -197,18 +198,63 @@ class _DialogCoinsPlanState extends State<DialogCoinsPlan> {
             }
           });
           
+          // Prepare receipt data for backend verification
+          String receiptData = '';
+          if (Platform.isAndroid) {
+            // For Android, create Google Play receipt data
+            receiptData = json.encode({
+              'packageName': 'com.livetok.app',
+              'productId': element.productID,
+              'purchaseToken': element.purchaseID,
+              'orderId': element.purchaseID,
+              'purchaseTime': DateTime.now().millisecondsSinceEpoch,
+              'purchaseState': 0, // 0 = purchased
+              'acknowledged': false
+            });
+          } else {
+            // For iOS, use the verification data
+            receiptData = element.verificationData.serverVerificationData;
+          }
+          
           // Add additional transaction details for tracking
           ApiService().purchaseCoin(
             coinPlanData.coinAmount ?? 0,
             transactionReference: element.purchaseID,
             amount: double.parse(coinPlanData.coinPlanPrice ?? '0'),
-            paymentMethod: Platform.isIOS ? 'App Store' : 'Google Play'
+            paymentMethod: Platform.isIOS ? 'app_store' : 'google_play',
+            receiptData: receiptData,
+            purchaseTimestamp: DateTime.now().toIso8601String(),
+            coinPackId: coinPlanData.coinPlanId?.toString()
           ).then(
             (value) {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              if (value.status == 200) {
+                Navigator.pop(context);
+                Navigator.pop(context);
+                CommonUI.showToast(msg: 'Purchase completed successfully!');
+              } else {
+                // Handle specific security errors
+                String errorMessage = value.message ?? 'Purchase verification failed';
+                
+                if (value.isRateLimited) {
+                  errorMessage = 'Too many purchase attempts. Please try again later.';
+                } else if (value.isBlocked) {
+                  errorMessage = 'Your account is temporarily blocked. Please contact support.';
+                } else if (value.isPaymentError) {
+                  errorMessage = 'Payment verification failed. Please try again.';
+                } else if (value.isSecurityError) {
+                  errorMessage = 'Security verification failed. Please contact support.';
+                }
+                
+                CommonUI.showToast(msg: errorMessage);
+                
+                // Log the error for debugging
+                log('Purchase verification failed: ${value.errorCode} - ${value.message}');
+              }
             },
-          );
+          ).catchError((error) {
+            CommonUI.showToast(msg: 'Purchase verification failed: Network error');
+            log('Purchase network error: $error');
+          });
         }
         if (element.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(element);

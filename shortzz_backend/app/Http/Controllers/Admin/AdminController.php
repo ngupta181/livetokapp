@@ -92,7 +92,7 @@ class AdminController extends Controller
 
 			return view('admin.dashboard')->with('totalUser', $totalUser)->with('totalTodayUser', $totalTodayUser)->with('totalVerifyUser', $totalVerifyUser)->with('totalPost', $totalPost)->with('totalSound', $totalSound)->with('totalSoundCategory', $totalSoundCategory)->with('totalHashTags', $totalHashTags)->with('totalVerificationRequest', $totalVerificationRequest)->with('totalReport', $totalReport)->with('CoinRate', $CoinRate)->with('MyWallet', $MyWallet)->with('totalRedeemRequest', $totalRedeemRequest);
 		} else {
-			return Redirect::route('login');
+			return Redirect::route('admin.login');
 		}
 	}
 
@@ -103,7 +103,7 @@ class AdminController extends Controller
 		if ($flag == 1) {
 			Session::flash('matchResetPassword', 'Password change successfully, Now login by new password...!');
 		}
-		return redirect()->route('login');
+		return redirect()->route('admin.login');
 	}
 	public function MyProfile()
 	{
@@ -111,7 +111,7 @@ class AdminController extends Controller
 			$data = Admin::first();
 			return view('admin.my-profile')->with('data', $data);
 		} else {
-			return Redirect::route('login');
+			return Redirect::route('admin.login');
 		}
 	}
 

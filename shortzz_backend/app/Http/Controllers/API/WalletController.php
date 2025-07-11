@@ -45,7 +45,7 @@ class WalletController extends Controller
         }
 
         $rules = [
-            'rewarding_action_id' => 'required',
+            'rewarding_action_id' => 'required|integer|in:1,2,3,4,5',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -57,12 +57,59 @@ class WalletController extends Controller
         }
         $rewarding_action_id = $request->get('rewarding_action_id');
 
+        // Rate limiting: Max 5 reward claims per hour per user
+        $recent_rewards = Transaction::where('user_id', $user_id)
+            ->where('transaction_type', 'reward')
+            ->where('created_at', '>=', now()->subHours(1))
+            ->count();
+
+        if ($recent_rewards >= 5) {
+            \Log::warning("Rate limit exceeded for reward claims", [
+                'user_id' => $user_id,
+                'recent_rewards' => $recent_rewards,
+                'ip' => $request->ip()
+            ]);
+            return response()->json([
+                'status' => 429, 
+                'message' => "Too many reward claims. Please wait before trying again."
+            ]);
+        }
+
         $settings = GlobalSettings::first();
         $coin = 0;
 
-        if ($rewarding_action_id == 3) {
-            $coin = $settings->reward_video_upload;
+        // Security: Define all valid reward actions
+        switch ($rewarding_action_id) {
+            case 1:
+                $coin = $settings->reward_sign_up ?? 10;
+                break;
+            case 2:
+                $coin = $settings->reward_daily_check_in ?? 5;
+                break;
+            case 3:
+                $coin = $settings->reward_video_upload ?? 10;
+                break;
+            case 4:
+                $coin = $settings->reward_profile_complete ?? 15;
+                break;
+            case 5:
+                $coin = $settings->reward_first_video ?? 25;
+                break;
+            default:
+                return response()->json(['status' => 401, 'message' => "Invalid reward action."]);
         }
+
+        // Security: Ensure coin amount is valid
+        if ($coin <= 0) {
+            return response()->json(['status' => 401, 'message' => "Invalid reward amount."]);
+        }
+
+        \Log::info("Reward claim attempt", [
+            'user_id' => $user_id,
+            'rewarding_action_id' => $rewarding_action_id,
+            'coin_amount' => $coin,
+            'ip' => $request->ip()
+        ]);
         $wallet_update = User::where('user_id', $user_id)->increment('my_wallet', $coin);
 
         if ($wallet_update) {
@@ -101,8 +148,8 @@ class WalletController extends Controller
         }
 
         $rules = [
-            'to_user_id' => 'required',
-            'coin' => 'required',
+            'to_user_id' => 'required|integer|min:1|exists:tbl_users,user_id',
+            'coin' => 'required|integer|min:1|max:10000',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -116,12 +163,92 @@ class WalletController extends Controller
         $coin = $request->get('coin');
         $gift_id = $request->get('gift_id'); // Optional gift ID if this is a gift transaction
 
+        // Security: Prevent self-transfers
+        if ($user_id == $to_user_id) {
+            return response()->json(['status' => 401, 'message' => "Cannot send coins to yourself."]);
+        }
+
+        // Rate limiting: Max 10 coin transfers per minute per user
+        $recent_transfers = Transaction::where('user_id', $user_id)
+            ->where('transaction_type', 'transfer')
+            ->where('created_at', '>=', now()->subMinutes(1))
+            ->count();
+
+        if ($recent_transfers >= 10) {
+            \Log::warning("Rate limit exceeded for coin transfer", [
+                'user_id' => $user_id,
+                'recent_transfers' => $recent_transfers,
+                'ip' => $request->ip()
+            ]);
+            return response()->json([
+                'status' => 429, 
+                'message' => "Too many transfer attempts. Please wait before trying again."
+            ]);
+        }
+
+        // Security: Log coin transfer attempts for monitoring
+        \Log::info("Coin transfer attempt", [
+            'from_user_id' => $user_id,
+            'to_user_id' => $to_user_id,
+            'coin_amount' => $coin,
+            'gift_id' => $gift_id,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
         $userData =  User::select('my_wallet')->where('user_id', $user_id)->first();
         $wallet = $userData['my_wallet'];
 
+        // Security: Ensure coin amount is positive (double-check)
+        if ($coin <= 0) {
+            \Log::warning("Negative coin transfer attempt blocked", [
+                'user_id' => $user_id,
+                'coin_amount' => $coin,
+                'ip' => $request->ip()
+            ]);
+            return response()->json(['status' => 401, 'message' => "Invalid coin amount."]);
+        }
+
         if ($wallet >= $coin) {
-            $count_update = User::where('user_id', $user_id)->where('my_wallet', '>', $coin)->decrement('my_wallet', $coin);
+            // Use database transaction for atomicity
+            DB::beginTransaction();
+            try {
+                // Security: Use more secure wallet deduction with balance verification
+                $count_update = User::where('user_id', $user_id)
+                    ->where('my_wallet', '>=', $coin)
+                    ->decrement('my_wallet', $coin);
+                
+                if ($count_update === 0) {
+                    DB::rollBack();
+                    return response()->json(['status' => 401, 'message' => "Insufficient wallet balance or concurrent transaction."]);
+                }
+                
             $wallet_update = User::where('user_id', $to_user_id)->increment('my_wallet', $coin);
+                
+                if ($wallet_update === 0) {
+                    DB::rollBack();
+                    return response()->json(['status' => 401, 'message' => "Recipient user not found."]);
+                }
+                
+                DB::commit();
+                
+                \Log::info("Coin transfer successful", [
+                    'from_user_id' => $user_id,
+                    'to_user_id' => $to_user_id,
+                    'coin_amount' => $coin,
+                    'sender_new_balance' => $wallet - $coin
+                ]);
+                
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error("Coin transfer failed", [
+                    'user_id' => $user_id,
+                    'to_user_id' => $to_user_id,
+                    'coin_amount' => $coin,
+                    'error' => $e->getMessage()
+                ]);
+                return response()->json(['status' => 500, 'message' => "Transfer failed. Please try again."]);
+            }
 
             // Record the gift transaction
             Transaction::create([
@@ -233,8 +360,15 @@ class WalletController extends Controller
             exit();
         }
 
+        // Enhanced validation rules
         $rules = [
-            'coin' => 'required',
+            'coin' => 'required|integer|min:1|max:10000',
+            'amount' => 'required|numeric|min:0.01|max:999.99',
+            'payment_method' => 'required|string|in:in_app_purchase,stripe,paypal,google_pay,apple_pay',
+            'transaction_reference' => 'required|string|min:10|max:100',
+            'platform' => 'required|string|in:ios,android,web',
+            'receipt_data' => 'required|string|min:10', // Receipt validation data
+            'purchase_timestamp' => 'required|date|before_or_equal:now|after:' . now()->subMinutes(30)->toDateString(),
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -246,15 +380,97 @@ class WalletController extends Controller
         }
 
         $coin = $request->get('coin');
-        $amount = $request->get('amount', 0);
-        $payment_method = $request->get('payment_method', 'in_app_purchase');
+        $amount = $request->get('amount');
+        $payment_method = $request->get('payment_method');
         $transaction_reference = $request->get('transaction_reference');
-        $platform = $request->get('platform', 'unknown');
-        
-        $wallet_update = User::where('user_id', $user_id)->increment('my_wallet', $coin);
-        
-        // Record the purchase transaction
-        Transaction::create([
+        $platform = $request->get('platform');
+        $receipt_data = $request->get('receipt_data');
+        $purchase_timestamp = $request->get('purchase_timestamp');
+
+        // Rate limiting check - max 5 purchases per minute
+        $recent_purchases = Transaction::where('user_id', $user_id)
+            ->where('transaction_type', 'purchase')
+            ->where('created_at', '>=', now()->subMinutes(1))
+            ->count();
+
+        if ($recent_purchases >= 5) {
+            return response()->json([
+                'status' => 429, 
+                'message' => "Too many purchase attempts. Please wait before trying again."
+            ]);
+        }
+
+        // Check for duplicate transaction reference
+        $existing_transaction = Transaction::where('transaction_reference', $transaction_reference)
+            ->where('user_id', $user_id)
+            ->first();
+
+        if ($existing_transaction) {
+            return response()->json([
+                'status' => 409,
+                'message' => "Transaction already processed."
+            ]);
+        }
+
+        // Validate coin plan exists and amount matches
+        $coin_plan = CoinPlan::where('coin', $coin)
+            ->where('amount', $amount)
+            ->first();
+
+        if (!$coin_plan) {
+            return response()->json([
+                'status' => 401,
+                'message' => "Invalid coin plan or amount mismatch."
+            ]);
+        }
+
+        // Payment verification based on platform
+        $payment_verified = false;
+        $verification_details = [];
+
+        try {
+            switch ($platform) {
+                case 'ios':
+                    $payment_verified = $this->verifyApplePayment($receipt_data, $amount);
+                    break;
+                case 'android':
+                    $payment_verified = $this->verifyGooglePayment($receipt_data, $amount);
+                    break;
+                case 'web':
+                    $payment_verified = $this->verifyWebPayment($payment_method, $transaction_reference, $amount);
+                    break;
+            }
+
+            if (!$payment_verified) {
+                // Log failed payment verification
+                Log::error("Payment verification failed", [
+                    'user_id' => $user_id,
+                    'amount' => $amount,
+                    'coins' => $coin,
+                    'transaction_reference' => $transaction_reference,
+                    'platform' => $platform,
+                    'ip' => $request->ip()
+                ]);
+
+                return response()->json([
+                    'status' => 402,
+                    'message' => "Payment verification failed. Please try again."
+                ]);
+            }
+
+            // Use database transaction for atomic operation
+            DB::beginTransaction();
+
+            // Lock user record for update
+            $user = User::where('user_id', $user_id)->lockForUpdate()->first();
+            
+            if (!$user) {
+                DB::rollback();
+                return response()->json(['status' => 404, 'message' => "User not found."]);
+            }
+
+            // Create transaction record first
+            $transaction = Transaction::create([
             'user_id' => $user_id,
             'transaction_type' => 'purchase',
             'coins' => $coin,
@@ -262,10 +478,307 @@ class WalletController extends Controller
             'payment_method' => $payment_method,
             'transaction_reference' => $transaction_reference,
             'platform' => $platform,
-            'status' => 'completed'
-        ]);
+                'status' => 'completed',
+                'meta_data' => json_encode([
+                    'receipt_data' => $receipt_data,
+                    'purchase_timestamp' => $purchase_timestamp,
+                    'verification_details' => $verification_details,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ])
+            ]);
 
-        return response()->json(['status' => 200, 'message' => "Coin Purchased Successfully."]);
+            // Update wallet balance
+            $wallet_update = User::where('user_id', $user_id)->increment('my_wallet', $coin);
+
+            if (!$wallet_update) {
+                DB::rollback();
+                return response()->json(['status' => 500, 'message' => "Failed to update wallet."]);
+            }
+
+            // Log successful purchase
+            Log::info("Coin purchase successful", [
+                'user_id' => $user_id,
+                'transaction_id' => $transaction->transaction_id,
+                'amount' => $amount,
+                'coins' => $coin,
+                'new_balance' => $user->my_wallet + $coin,
+                'ip' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 200, 
+                'message' => "Coin Purchased Successfully.",
+                'data' => [
+                    'transaction_id' => $transaction->transaction_id,
+                    'coins_purchased' => $coin,
+                    'amount_paid' => $amount,
+                    'new_balance' => $user->my_wallet + $coin
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollback();
+            
+            // Log error
+            Log::error("Coin purchase error", [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'status' => 500,
+                'message' => "Purchase failed. Please try again."
+            ]);
+        }
+    }
+
+    /**
+     * Verify Apple In-App Purchase
+     */
+    private function verifyApplePayment($receipt_data, $amount)
+    {
+        // Implement Apple Store receipt verification
+        try {
+            // Production URL: https://buy.itunes.apple.com/verifyReceipt
+            // Sandbox URL: https://sandbox.itunes.apple.com/verifyReceipt
+            
+            $receipt_url = config('app.env') === 'production' 
+                ? 'https://buy.itunes.apple.com/verifyReceipt'
+                : 'https://sandbox.itunes.apple.com/verifyReceipt';
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $receipt_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                'receipt-data' => $receipt_data,
+                'password' => config('services.apple.shared_secret')
+            ]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                return false;
+            }
+
+            $result = json_decode($response, true);
+            return isset($result['status']) && $result['status'] === 0;
+
+        } catch (Exception $e) {
+            Log::error("Apple payment verification failed: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Verify Google Play Purchase
+     */
+    private function verifyGooglePayment($receipt_data, $amount)
+    {
+        // For testing/development environments, allow mock verification
+        if (app()->environment('local', 'testing')) {
+            Log::info("Development environment - verifying Google payment with mock data");
+            
+            // Parse receipt data for basic validation
+            $receipt = json_decode($receipt_data, true);
+            
+            // Basic validation
+            if (empty($receipt['packageName']) || empty($receipt['productId']) || empty($receipt['purchaseToken'])) {
+                Log::warning("Mock Google verification failed - invalid receipt format", [
+                    'receipt_data' => $receipt_data
+                ]);
+                return false;
+            }
+            
+            // Verify package name matches
+            $expectedPackageName = config('services.google.package_name');
+            if ($receipt['packageName'] !== $expectedPackageName) {
+                Log::warning("Mock Google verification failed - package name mismatch", [
+                    'expected' => $expectedPackageName,
+                    'received' => $receipt['packageName']
+                ]);
+                return false;
+            }
+            
+            Log::info("Mock Google verification successful", [
+                'packageName' => $receipt['packageName'],
+                'productId' => $receipt['productId'],
+                'amount' => $amount
+            ]);
+            
+            return true;
+        }
+        
+        // Production Google Play purchase verification
+        try {
+            Log::info("Verifying Google Play purchase", [
+                'amount' => $amount,
+                'service_account_key' => config('services.google.service_account_key')
+            ]);
+            
+            // Use Google Play Developer API
+            $client = new \Google_Client();
+            $client->setAuthConfig(config('services.google.service_account_key'));
+            $client->addScope('https://www.googleapis.com/auth/androidpublisher');
+
+            $service = new \Google_Service_AndroidPublisher($client);
+            
+            $receipt = json_decode($receipt_data, true);
+            
+            // Validate receipt structure
+            if (empty($receipt['packageName']) || empty($receipt['productId']) || empty($receipt['purchaseToken'])) {
+                Log::error("Google verification failed - invalid receipt structure", [
+                    'receipt_data' => $receipt_data
+                ]);
+                return false;
+            }
+            
+            $packageName = $receipt['packageName'];
+            $productId = $receipt['productId'];
+            $token = $receipt['purchaseToken'];
+            
+            // Verify package name matches
+            $expectedPackageName = config('services.google.package_name');
+            if ($packageName !== $expectedPackageName) {
+                Log::error("Google verification failed - package name mismatch", [
+                    'expected' => $expectedPackageName,
+                    'received' => $packageName
+                ]);
+                return false;
+            }
+
+            // Get purchase details from Google
+            $purchase = $service->purchases_products->get($packageName, $productId, $token);
+            
+            Log::info("Google Play purchase verification response", [
+                'purchaseState' => $purchase->purchaseState,
+                'consumptionState' => $purchase->consumptionState ?? 'N/A',
+                'purchaseTimeMillis' => $purchase->purchaseTimeMillis ?? 'N/A',
+                'productId' => $productId
+            ]);
+            
+            // Check purchase state: 0 = purchased, 1 = canceled, 2 = pending
+            if ($purchase->purchaseState === 0) {
+                Log::info("Google Play purchase verification successful", [
+                    'packageName' => $packageName,
+                    'productId' => $productId,
+                    'amount' => $amount
+                ]);
+                return true;
+            } else {
+                Log::warning("Google Play purchase verification failed - invalid state", [
+                    'purchaseState' => $purchase->purchaseState,
+                    'productId' => $productId
+                ]);
+                return false;
+            }
+
+        } catch (Exception $e) {
+            Log::error("Google payment verification failed - API error", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'amount' => $amount
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Verify Web Payment (Stripe/PayPal)
+     */
+    private function verifyWebPayment($payment_method, $transaction_reference, $amount)
+    {
+        // Implement web payment verification
+        try {
+            switch ($payment_method) {
+                case 'stripe':
+                    return $this->verifyStripePayment($transaction_reference, $amount);
+                case 'paypal':
+                    return $this->verifyPaypalPayment($transaction_reference, $amount);
+                default:
+                    return false;
+            }
+        } catch (Exception $e) {
+            Log::error("Web payment verification failed: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Verify Stripe Payment
+     */
+    private function verifyStripePayment($transaction_reference, $amount)
+    {
+        // Implement Stripe payment verification
+        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        
+        try {
+            $payment_intent = \Stripe\PaymentIntent::retrieve($transaction_reference);
+            return $payment_intent->status === 'succeeded' && 
+                   $payment_intent->amount === ($amount * 100); // Stripe uses cents
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            Log::error("Stripe verification failed: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Verify PayPal Payment
+     */
+    private function verifyPaypalPayment($transaction_reference, $amount)
+    {
+        // Implement PayPal payment verification
+        try {
+            $client_id = config('services.paypal.client_id');
+            $client_secret = config('services.paypal.client_secret');
+            $base_url = config('app.env') === 'production' 
+                ? 'https://api.paypal.com' 
+                : 'https://api.sandbox.paypal.com';
+
+            // Get access token
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $base_url . '/v1/oauth2/token');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, 'grant_type=client_credentials');
+            curl_setopt($ch, CURLOPT_USERPWD, $client_id . ':' . $client_secret);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
+
+            $response = curl_exec($ch);
+            $result = json_decode($response, true);
+            curl_close($ch);
+
+            if (!isset($result['access_token'])) {
+                return false;
+            }
+
+            // Verify payment
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $base_url . '/v2/checkout/orders/' . $transaction_reference);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $result['access_token'],
+                'Content-Type: application/json'
+            ]);
+
+            $response = curl_exec($ch);
+            $payment = json_decode($response, true);
+            curl_close($ch);
+
+            return isset($payment['status']) && $payment['status'] === 'COMPLETED';
+
+        } catch (Exception $e) {
+            Log::error("PayPal verification failed: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getMyWalletCoin(Request $request)
@@ -413,9 +926,10 @@ class WalletController extends Controller
         }
 
         $rules = [
-            'amount' => 'required',
-            'redeem_request_type' => 'required',
-            'account' => 'required',
+            'amount' => 'required|numeric|min:0.01|max:10000',
+            'coin' => 'required|integer|min:1|max:100000',
+            'redeem_request_type' => 'required|string|in:Paypal,paypal,stripe,bank_transfer,crypto',
+            'account' => 'required|string|min:5|max:100',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -426,14 +940,60 @@ class WalletController extends Controller
             return response()->json(['status' => 401, 'message' => $msg]);
         }
         
-        $coin = $request->get('coin') ? $request->get('coin') : 0;
+        $coin = $request->get('coin');
         $amount = $request->get('amount');
         $redeem_request_type = $request->get('redeem_request_type');
         $account = $request->get('account');
         
-        // Check if user has enough coins
-        $user = User::select('my_wallet')->where('user_id', $user_id)->first();
+        // Rate limiting: Max 3 redeem requests per day per user
+        $recent_redeems = RedeemRequest::where('user_id', $user_id)
+            ->where('created_at', '>=', now()->subDays(1))
+            ->count();
+
+        if ($recent_redeems >= 3) {
+            \Log::warning("Rate limit exceeded for redeem requests", [
+                'user_id' => $user_id,
+                'recent_redeems' => $recent_redeems,
+                'ip' => $request->ip()
+            ]);
+            return response()->json([
+                'status' => 429, 
+                'message' => "Too many redeem requests. Please wait before trying again."
+            ]);
+        }
+
+        // Security: Validate minimum withdrawal amount
+        if ($amount < 1.00) {
+            return response()->json(['status' => 401, 'message' => "Minimum withdrawal amount is $1.00"]);
+        }
+
+        // Security: Validate coin to amount ratio (prevent manipulation)
+        $expected_amount = $coin * 0.01; // Assuming 1 coin = $0.01
+        if (abs($amount - $expected_amount) > 0.01) {
+            \Log::warning("Coin-to-amount ratio manipulation attempt", [
+                'user_id' => $user_id,
+                'coin' => $coin,
+                'amount' => $amount,
+                'expected_amount' => $expected_amount,
+                'ip' => $request->ip()
+            ]);
+            return response()->json(['status' => 401, 'message' => "Invalid coin to amount conversion."]);
+        }
+
+        \Log::info("Redeem request attempt", [
+            'user_id' => $user_id,
+            'coin' => $coin,
+            'amount' => $amount,
+            'redeem_request_type' => $redeem_request_type,
+            'ip' => $request->ip()
+        ]);
+        
+        // Check if user has enough coins with atomic transaction
+        DB::beginTransaction();
+        try {
+            $user = User::select('my_wallet')->where('user_id', $user_id)->lockForUpdate()->first();
         if (!$user || $user->my_wallet < $coin) {
+                DB::rollBack();
             return response()->json(['status' => 401, 'message' => "Insufficient coins in your wallet."]);
         }
 
@@ -459,17 +1019,33 @@ class WalletController extends Controller
             'meta_data' => json_encode(['account' => $account])
         ]);
 
-        // Deduct only the withdrawal amount from wallet instead of setting to zero
+            // Deduct coins from wallet
         $remainingCoins = $user->my_wallet - $coin;
-        $update_data = array(
-            'my_wallet' => $remainingCoins,
-        );
+            $count_update = User::where('user_id', $user_id)->update(['my_wallet' => $remainingCoins]);
 
-        $count_update = User::where('user_id', $user_id)->update($update_data);
-        if ($insert) {
+            if ($insert && $count_update) {
+                DB::commit();
+                \Log::info("Redeem request successful", [
+                    'user_id' => $user_id,
+                    'coin' => $coin,
+                    'amount' => $amount,
+                    'remaining_coins' => $remainingCoins
+                ]);
             return response()->json(['status' => 200, 'message' => "Redeem Request Successfully."]);
         } else {
+                DB::rollBack();
             return response()->json(['status' => 401, 'message' => "Redeem Request Failed."]);
+            }
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error("Redeem request failed", [
+                'user_id' => $user_id,
+                'coin' => $coin,
+                'amount' => $amount,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['status' => 500, 'message' => "Redeem request failed. Please try again."]);
         }
     }
 }

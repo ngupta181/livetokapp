@@ -26,7 +26,7 @@ use App\VerificationRequest;
 use App\Notification;
 use App\BlockUser;
 use App\CacheKeys;
-use App\Classes\AgoraDynamicKey\RtcTokenBuilder;
+use App\Class\AgoraDynamicKey\RtcTokenBuilder;
 use App\Common;
 use App\GlobalFunction;
 use App\RedeemRequest;
@@ -34,6 +34,8 @@ use Illuminate\Support\Carbon;
 use Google\Client;
 use Illuminate\Support\Facades\File as FacadesFile;
 use Illuminate\Support\Facades\Validator;
+use Torann\GeoIP\Facades\GeoIP;
+include_once base_path('app/Class/AgoraDynamicKey/RtcTokenBuilder.php');
 
 class UserController extends Controller
 {
@@ -166,6 +168,16 @@ class UserController extends Controller
             $data['login_type'] = $request->get('login_type');
             $data['platform'] = $request->get('platform');
 
+            // Get user's location from IP
+            $location = GeoIP::getLocation();
+            
+            // Add location data to user creation
+            $data['user_country'] = $location['country'] ?? 'Unknown';
+            $data['user_state'] = $location['state_name'] ?? 'Unknown';
+            $data['user_city'] = $location['city'] ?? 'Unknown';
+            $data['timezone'] = $location['timezone'] ?? 'UTC';
+            $data['user_ip'] = $request->ip();
+
             $result = User::insert($data);
 
             if (!empty($result)) {
@@ -192,6 +204,14 @@ class UserController extends Controller
 
             $data['login_type'] = $request->get('login_type');
             $data['platform'] = $request->get('platform');
+
+            // Update location data for existing users
+            $location = GeoIP::getLocation();
+            $data['user_country'] = $location['country'] ?? 'Unknown';
+            $data['user_state'] = $location['state_name'] ?? 'Unknown';
+            $data['user_city'] = $location['city'] ?? 'Unknown';
+            $data['timezone'] = $location['timezone'] ?? 'UTC';
+            $data['user_ip'] = $request->ip();
 
             $user_id = $CheckUSer->user_id;
             $result =  User::where('identity', $identity)->update($data);
@@ -1123,8 +1143,8 @@ class UserController extends Controller
         }
         
         $rules = [
-            'points' => 'required|numeric',
-            'action_type' => 'required|string',
+            'points' => 'required|integer|min:1|max:10000',
+            'action_type' => 'required|string|in:send_gift,receive_gift,video_upload,daily_check_in,profile_complete,first_video',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -1137,6 +1157,57 @@ class UserController extends Controller
         
         $points = $request->get('points');
         $actionType = $request->get('action_type');
+
+        // Rate limiting: Max 20 level point updates per hour per user
+        $recent_updates = User::where('user_id', $user_id)
+            ->where('updated_at', '>=', now()->subHours(1))
+            ->count();
+
+        if ($recent_updates >= 20) {
+            \Log::warning("Rate limit exceeded for level point updates", [
+                'user_id' => $user_id,
+                'recent_updates' => $recent_updates,
+                'ip' => $request->ip()
+            ]);
+            return response()->json([
+                'status' => 429, 
+                'message' => "Too many level point updates. Please wait before trying again."
+            ]);
+        }
+
+        // Security: Validate point amounts based on action type
+        $valid_points = [
+            'send_gift' => ['min' => 1, 'max' => 5000],
+            'receive_gift' => ['min' => 1, 'max' => 1250],
+            'video_upload' => ['min' => 10, 'max' => 100],
+            'daily_check_in' => ['min' => 5, 'max' => 25],
+            'profile_complete' => ['min' => 15, 'max' => 75],
+            'first_video' => ['min' => 25, 'max' => 125]
+        ];
+
+        if (isset($valid_points[$actionType])) {
+            $min_points = $valid_points[$actionType]['min'];
+            $max_points = $valid_points[$actionType]['max'];
+            
+            if ($points < $min_points || $points > $max_points) {
+                \Log::warning("Invalid point amount for action type", [
+                    'user_id' => $user_id,
+                    'action_type' => $actionType,
+                    'points' => $points,
+                    'min_allowed' => $min_points,
+                    'max_allowed' => $max_points,
+                    'ip' => $request->ip()
+                ]);
+                return response()->json(['status' => 401, 'message' => "Invalid point amount for this action."]);
+            }
+        }
+
+        \Log::info("Level point update attempt", [
+            'user_id' => $user_id,
+            'points' => $points,
+            'action_type' => $actionType,
+            'ip' => $request->ip()
+        ]);
         
         $user = User::where('user_id', $user_id)->first();
         

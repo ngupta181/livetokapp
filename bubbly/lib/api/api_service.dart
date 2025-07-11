@@ -912,67 +912,133 @@ class ApiService {
     File? postSound,
     File? soundImage,
   }) async {
-    var request = http.MultipartRequest(
-      "POST",
-      Uri.parse(UrlRes.addPost),
-    );
-    request.headers[UrlRes.uniqueKey] = ConstRes.apiKey;
-    request.headers[UrlRes.authorization] = SessionManager.accessToken;
-    request.fields[UrlRes.userId] = SessionManager.userId.toString();
-    if (postDescription.isNotEmpty) {
-      request.fields[UrlRes.postDescription] = postDescription;
-    }
-    if (postHashTag.isNotEmpty) {
-      request.fields[UrlRes.postHashTag] = postHashTag;
-    }
-    request.fields[UrlRes.isOriginalSound] = isOriginalSound;
-    if (isOriginalSound == '1') {
-      request.fields[UrlRes.soundTitle] = soundTitle!;
-      request.fields[UrlRes.duration] = audioDuration!;
-      request.fields[UrlRes.singer] = singer!;
-      if (postSound != null) {
-        request.files.add(
-          http.MultipartFile(UrlRes.postSound,
-              postSound.readAsBytes().asStream(), postSound.lengthSync(),
-              filename: postSound.path.split("/").last),
+    try {
+      var request = http.MultipartRequest(
+        "POST",
+        Uri.parse(UrlRes.addPost),
+      );
+      
+      // Set a longer timeout for video uploads
+      request.headers[UrlRes.uniqueKey] = ConstRes.apiKey;
+      request.headers[UrlRes.authorization] = SessionManager.accessToken;
+      request.fields[UrlRes.userId] = SessionManager.userId.toString();
+      
+      if (postDescription.isNotEmpty) {
+        request.fields[UrlRes.postDescription] = postDescription;
+      }
+      if (postHashTag.isNotEmpty) {
+        request.fields[UrlRes.postHashTag] = postHashTag;
+      }
+      request.fields[UrlRes.isOriginalSound] = isOriginalSound;
+      
+      if (isOriginalSound == '1') {
+        request.fields[UrlRes.soundTitle] = soundTitle!;
+        request.fields[UrlRes.duration] = audioDuration!;
+        request.fields[UrlRes.singer] = singer!;
+        if (postSound != null) {
+          request.files.add(
+            http.MultipartFile(UrlRes.postSound,
+                postSound.readAsBytes().asStream(), postSound.lengthSync(),
+                filename: postSound.path.split("/").last),
+          );
+        }
+        if (soundImage != null) {
+          request.files.add(http.MultipartFile(UrlRes.soundImage,
+                soundImage.readAsBytes().asStream(), soundImage.lengthSync(),
+                filename: soundImage.path.split("/").last),
+          );
+        }
+      } else {
+        request.fields[UrlRes.soundId] = soundId!;
+      }
+      
+      if (postVideo != null) {
+        // Check video file size
+        var videoSize = postVideo.lengthSync();
+        print('Video file size: ${(videoSize / 1024 / 1024).toStringAsFixed(2)} MB');
+        
+        if (videoSize > 100 * 1024 * 1024) { // 100MB limit
+          return RestResponse(
+            status: 413,
+            message: "File size too large. Please upload a smaller video.",
+          );
+        }
+        
+        request.files.add(http.MultipartFile(UrlRes.postVideo, postVideo.readAsBytes().asStream(),
+              postVideo.lengthSync(),
+              filename: postVideo.path.split("/").last),
         );
       }
-      if (soundImage != null) {
-        request.files.add(http.MultipartFile(UrlRes.soundImage,
-              soundImage.readAsBytes().asStream(), soundImage.lengthSync(),
-              filename: soundImage.path.split("/").last),
+      
+      if (thumbnail != null) {
+        request.files.add(http.MultipartFile(UrlRes.postImage, thumbnail.readAsBytes().asStream(),
+              thumbnail.lengthSync(),
+              filename: thumbnail.path.split("/").last),
         );
       }
-    } else {
-      request.fields[UrlRes.soundId] = soundId!;
-    }
-    if (postVideo != null) {
-      request.files.add(http.MultipartFile(UrlRes.postVideo, postVideo.readAsBytes().asStream(),
-            postVideo.lengthSync(),
-            filename: postVideo.path.split("/").last),
+
+      print('PARAMETER : ${request.fields}');
+      print('AUTHORISATION : ${SessionManager.accessToken}');
+      print('PARAMETER Files : ${request.files.map((e) => e.field)}');
+
+      // Create a client with custom timeout
+      var client = http.Client();
+      
+      try {
+        // Send the request with a timeout
+        var streamedResponse = await client.send(request).timeout(
+          const Duration(minutes: 5), // 5 minute timeout for large video uploads
+          onTimeout: () {
+            client.close();
+            throw Exception('Upload timeout. Please check your internet connection and try again.');
+          },
+        );
+        
+        var response = await http.Response.fromStream(streamedResponse);
+        
+        log('Add Post : ${response.statusCode}');
+        var respStr = response.body;
+        
+        if (response.statusCode == 413) {
+          return RestResponse(
+            status: 413,
+            message: "File size too large. Please upload a smaller video.",
+          );
+        }
+        
+        final responseJson = jsonDecode(respStr);
+        log('Add Post json: ${responseJson}');
+        
+        addCoin();
+        return RestResponse.fromJson(responseJson);
+        
+      } catch (e) {
+        print('Upload error: $e');
+        
+        if (e.toString().contains('SocketException') || 
+            e.toString().contains('Connection reset') ||
+            e.toString().contains('Connection closed')) {
+          return RestResponse(
+            status: 500,
+            message: "Connection lost during upload. Please check your internet connection and try again.",
+          );
+        }
+        
+        return RestResponse(
+          status: 500,
+          message: "Upload failed: ${e.toString()}",
+        );
+      } finally {
+        client.close();
+      }
+      
+    } catch (e) {
+      print('Add post error: $e');
+      return RestResponse(
+        status: 500,
+        message: "Error uploading post: ${e.toString()}",
       );
     }
-    if (thumbnail != null) {
-      request.files.add(http.MultipartFile(UrlRes.postImage, thumbnail.readAsBytes().asStream(),
-            thumbnail.lengthSync(),
-            filename: thumbnail.path.split("/").last),
-      );
-    }
-
-    print('PARAMETER : ${request.fields}');
-    print('AUTHORISATION : ${SessionManager.accessToken}');
-    print('PARAMETER Files : ${request.files.map((e) => e.field)}');
-
-    var response = await request.send();
-    log('Add Post : ${response.statusCode}');
-    var respStr = await response.stream.bytesToString();
-    final responseJson = jsonDecode(respStr);
-    log('Add Post json: ${responseJson}');
-    // print(request.fields);
-    // print(UrlRes.addPost);
-    // print(responseJson);
-    addCoin();
-    return RestResponse.fromJson(responseJson);
   }
 
   Future<FavouriteMusic> getSearchSoundList(String keyword) async {
@@ -1166,7 +1232,14 @@ class ApiService {
     return CoinPlans.fromJson(responseJson);
   }
 
-  Future<RestResponse> purchaseCoin(int coin, {String? transactionReference, double? amount, String? paymentMethod}) async {
+  Future<RestResponse> purchaseCoin(int coin, {
+    String? transactionReference, 
+    double? amount, 
+    String? paymentMethod,
+    String? receiptData,
+    String? purchaseTimestamp,
+    String? coinPackId
+  }) async {
     final body = {
       UrlRes.coin: '$coin',
     };
@@ -1181,6 +1254,21 @@ class ApiService {
     
     if (paymentMethod != null) {
       body['payment_method'] = paymentMethod;
+    }
+    
+    // Add receipt data for enhanced security verification
+    if (receiptData != null) {
+      body['receipt_data'] = receiptData;
+    }
+    
+    // Add purchase timestamp for fraud detection
+    if (purchaseTimestamp != null) {
+      body['purchase_timestamp'] = purchaseTimestamp;
+    }
+    
+    // Add coin pack ID for validation
+    if (coinPackId != null) {
+      body['coin_pack_id'] = coinPackId;
     }
     
     body['platform'] = Platform.isIOS ? 'ios' : 'android';
@@ -1221,7 +1309,7 @@ class ApiService {
 
   static HttpClient getHttpClient() {
     HttpClient httpClient = new HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10)
+      ..connectionTimeout = const Duration(seconds: 120)  // Increased from 10 to 120 seconds
       ..badCertificateCallback =
           ((X509Certificate cert, String host, int port) => true);
 

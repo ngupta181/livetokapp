@@ -40,7 +40,7 @@ Route::get('/contact', function () {
 
 Route::get('/v/{shortCode}', [PostController::class, 'resolveShareableLink'])->name('resolve.share.link');
 
-Route::get('/admin', 'Admin\AdminController@showLogin')->name('login');
+Route::get('/admin', 'Admin\AdminController@showLogin')->name('admin.login');
 Route::post('dologin', 'Admin\AdminController@doLogin')->name('login.submit');
 Route::get('logout/{flag}', 'Admin\AdminController@logout')->name('logout');
 
@@ -158,5 +158,18 @@ Route::group(array('middleware' => 'checkRole'), function () {
     Route::get('bulk-video-upload', 'Admin\PostController@viewBulkUpload')->name('admin.bulk-video-upload');
     Route::get('bulk-video-upload/template', 'Admin\PostController@downloadTemplate')->name('admin.bulk-video-upload.template');
     Route::post('bulk-video-upload', 'Admin\PostController@bulkVideoUpload')->name('admin.bulk-video-upload.process');
+    
+    // Blocked IPs Management Routes
+    Route::prefix('blocked-ips')->group(function () {
+        Route::get('list', 'Admin\BlockedIpController@index')->name('admin.blocked-ips.index');
+        Route::get('create', 'Admin\BlockedIpController@create')->name('admin.blocked-ips.create');
+        Route::post('store', 'Admin\BlockedIpController@store')->name('admin.blocked-ips.store');
+        Route::get('show/{ip}', 'Admin\BlockedIpController@show')->name('admin.blocked-ips.show');
+        Route::get('unblock/{id}', 'Admin\BlockedIpController@unblock')->name('admin.blocked-ips.unblock');
+        Route::get('export', 'Admin\BlockedIpController@export')->name('admin.blocked-ips.export');
+        Route::get('cleanup', 'Admin\BlockedIpController@cleanup')->name('admin.blocked-ips.cleanup');
+        Route::post('block-ajax', 'Admin\BlockedIpController@blockIpAjax')->name('admin.blocked-ips.block-ajax');
+        Route::post('unblock-ajax', 'Admin\BlockedIpController@unblockIpAjax')->name('admin.blocked-ips.unblock-ajax');
+    });
     
 });

@@ -257,19 +257,37 @@ class PostController extends Controller
 
     public function addPost(Request $request)
     {
+        // Log function entry
+        Log::info('addPost function called', [
+            'user_agent' => $request->header('User-Agent'),
+            'ip_address' => $request->ip(),
+            'request_data' => $request->except(['post_video', 'post_image', 'post_sound', 'sound_image']) // Exclude file data from logs
+        ]);
 
         $user_id = $request->user()->user_id;
 
         if (empty($user_id)) {
+            Log::warning('addPost failed: User ID is empty or missing', [
+                'user' => $request->user()
+            ]);
             $msg = "user id is required";
             return response()->json(['success_code' => 401, 'response_code' => 0, 'response_message' => $msg]);
         }
+
+        Log::info('addPost: User authenticated successfully', [
+            'user_id' => $user_id
+        ]);
 
         $headers = $request->headers->all();
 
         $verify_request_base = Admin::verify_request_base($headers);
 
         if (isset($verify_request_base['status']) && $verify_request_base['status'] == 401) {
+            Log::warning('addPost failed: Unauthorized access detected', [
+                'user_id' => $user_id,
+                'headers' => $headers,
+                'verify_result' => $verify_request_base
+            ]);
             return response()->json(['success_code' => 401, 'message' => "Unauthorized Access!"]);
             exit();
         }
@@ -283,14 +301,36 @@ class PostController extends Controller
         $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
+            Log::warning('addPost failed: Validation error', [
+                'user_id' => $user_id,
+                'validation_errors' => $validator->errors()->all(),
+                'request_data' => $request->except(['post_video', 'post_image', 'post_sound', 'sound_image'])
+            ]);
             $messages = $validator->errors()->all();
             $msg = $messages[0];
             return response()->json(['status' => 401, 'message' => $msg]);
         }
+
+        Log::info('addPost: Validation passed successfully', [
+            'user_id' => $user_id
+        ]);
+
         // Max upload daily filter
         $settings = GlobalSettings::first();
         $postsCount = Post::where('user_id', $user_id)->whereDate('created_at', Carbon::today())->count();
+        
+        Log::info('addPost: Daily upload limit check', [
+            'user_id' => $user_id,
+            'posts_today' => $postsCount,
+            'max_daily_limit' => $settings->max_upload_daily
+        ]);
+
         if ($postsCount >= $settings->max_upload_daily) {
+            Log::warning('addPost failed: Daily upload limit exceeded', [
+                'user_id' => $user_id,
+                'posts_today' => $postsCount,
+                'max_daily_limit' => $settings->max_upload_daily
+            ]);
             return response()->json(['status' => 401, 'message' => "Users can upload only 10 posts a day!"]);
         }
 
@@ -298,14 +338,52 @@ class PostController extends Controller
         $post_video = '';
         $post_image = '';
 
+        // Handle video upload
         if ($request->hasfile('post_video')) {
-            $file = $request->file('post_video');
-            $post_video = GlobalFunction::uploadFilToS3($file);
+            Log::info('addPost: Processing video upload', [
+                'user_id' => $user_id,
+                'video_size' => $request->file('post_video')->getSize(),
+                'video_mime' => $request->file('post_video')->getMimeType()
+            ]);
+            
+            try {
+                $file = $request->file('post_video');
+                $post_video = GlobalFunction::uploadFilToS3($file);
+                Log::info('addPost: Video uploaded successfully', [
+                    'user_id' => $user_id,
+                    'video_url' => $post_video
+                ]);
+            } catch (\Exception $e) {
+                Log::error('addPost: Video upload failed', [
+                    'user_id' => $user_id,
+                    'error' => $e->getMessage()
+                ]);
+                return response()->json(['status' => 401, 'message' => "Error uploading video file."]);
+            }
         }
 
+        // Handle image upload
         if ($request->hasfile('post_image')) {
-            $file = $request->file('post_image');
-            $post_image = GlobalFunction::uploadFilToS3($file);
+            Log::info('addPost: Processing image upload', [
+                'user_id' => $user_id,
+                'image_size' => $request->file('post_image')->getSize(),
+                'image_mime' => $request->file('post_image')->getMimeType()
+            ]);
+            
+            try {
+                $file = $request->file('post_image');
+                $post_image = GlobalFunction::uploadFilToS3($file);
+                Log::info('addPost: Image uploaded successfully', [
+                    'user_id' => $user_id,
+                    'image_url' => $post_image
+                ]);
+            } catch (\Exception $e) {
+                Log::error('addPost: Image upload failed', [
+                    'user_id' => $user_id,
+                    'error' => $e->getMessage()
+                ]);
+                return response()->json(['status' => 401, 'message' => "Error uploading image file."]);
+            }
         }
 
         $data['post_description'] = $request->get('post_description') ? $request->get('post_description') : "";
@@ -317,33 +395,111 @@ class PostController extends Controller
         $data['can_duet'] = $request->get('can_duet') ? $request->get('can_duet') : 0;
         $data['can_save'] = $request->get('can_save') ? $request->get('can_save') : 0;
 
-        $insert_post = Post::insert($data);
-        $post_id = DB::getPdo()->lastInsertId();
+        Log::info('addPost: Attempting to insert post', [
+            'user_id' => $user_id,
+            'post_data' => array_merge($data, [
+                'post_video' => $post_video ? 'uploaded' : 'none',
+                'post_image' => $post_image ? 'uploaded' : 'none'
+            ])
+        ]);
+
+        try {
+            $insert_post = Post::insert($data);
+            $post_id = DB::getPdo()->lastInsertId();
+            
+            Log::info('addPost: Post inserted successfully', [
+                'user_id' => $user_id,
+                'post_id' => $post_id,
+                'insert_result' => $insert_post
+            ]);
+        } catch (\Exception $e) {
+            Log::error('addPost: Post insertion failed', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+                'post_data' => $data
+            ]);
+            return response()->json(['status' => 401, 'message' => "Error While Add Post."]);
+        }
 
         if ($insert_post) {
             $post_hash_tag = $request->get('post_hash_tag');
+            
+            // Handle hashtags
             if (!empty($post_hash_tag)) {
+                Log::info('addPost: Processing hashtags', [
+                    'user_id' => $user_id,
+                    'post_id' => $post_id,
+                    'hashtags' => $post_hash_tag
+                ]);
+                
                 $hash_tag_array = explode(",", $post_hash_tag);
                 foreach ($hash_tag_array as $value) {
                     $count = HashTags::where('hash_tag_name', $value)->count();
                     if ($count == 0) {
-                        $data1['hash_tag_name'] = $value;
-                        $insert_hash = HashTags::insert($data1);
+                        try {
+                            $data1['hash_tag_name'] = $value;
+                            $insert_hash = HashTags::insert($data1);
+                            Log::info('addPost: New hashtag created', [
+                                'user_id' => $user_id,
+                                'post_id' => $post_id,
+                                'hashtag' => $value
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('addPost: Hashtag insertion failed', [
+                                'user_id' => $user_id,
+                                'post_id' => $post_id,
+                                'hashtag' => $value,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
                     }
                 }
             }
 
+            // Handle sound processing
             if ($is_orignal_sound == 1) {
+                Log::info('addPost: Processing original sound', [
+                    'user_id' => $user_id,
+                    'post_id' => $post_id
+                ]);
+                
                 $post_sound = '';
                 $sound_image = '';
+                
                 if ($request->hasfile('post_sound')) {
-                    $file = $request->file('post_sound');
-                    $post_sound = GlobalFunction::uploadFilToS3($file);
+                    try {
+                        $file = $request->file('post_sound');
+                        $post_sound = GlobalFunction::uploadFilToS3($file);
+                        Log::info('addPost: Sound file uploaded successfully', [
+                            'user_id' => $user_id,
+                            'post_id' => $post_id,
+                            'sound_url' => $post_sound
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('addPost: Sound file upload failed', [
+                            'user_id' => $user_id,
+                            'post_id' => $post_id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
 
                 if ($request->hasfile('sound_image')) {
-                    $file = $request->file('sound_image');
-                    $sound_image = GlobalFunction::uploadFilToS3($file);
+                    try {
+                        $file = $request->file('sound_image');
+                        $sound_image = GlobalFunction::uploadFilToS3($file);
+                        Log::info('addPost: Sound image uploaded successfully', [
+                            'user_id' => $user_id,
+                            'post_id' => $post_id,
+                            'sound_image_url' => $sound_image
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('addPost: Sound image upload failed', [
+                            'user_id' => $user_id,
+                            'post_id' => $post_id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
 
                 $data2['sound'] = $post_sound;
@@ -352,14 +508,56 @@ class PostController extends Controller
                 $data2['singer'] = $request->get('singer');
                 $data2['sound_image'] = $sound_image;
 
-                $insert_sound = Sound::insert($data2);
-                $sound_id = DB::getPdo()->lastInsertId();
+                try {
+                    $insert_sound = Sound::insert($data2);
+                    $sound_id = DB::getPdo()->lastInsertId();
+                    Log::info('addPost: Original sound created successfully', [
+                        'user_id' => $user_id,
+                        'post_id' => $post_id,
+                        'sound_id' => $sound_id,
+                        'sound_title' => $request->get('sound_title')
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('addPost: Sound insertion failed', [
+                        'user_id' => $user_id,
+                        'post_id' => $post_id,
+                        'error' => $e->getMessage(),
+                        'sound_data' => $data2
+                    ]);
+                    return response()->json(['status' => 401, 'message' => "Error While Add Post."]);
+                }
             } else if ($is_orignal_sound == 0) {
                 $sound_id = $request->get('sound_id');
+                Log::info('addPost: Using existing sound', [
+                    'user_id' => $user_id,
+                    'post_id' => $post_id,
+                    'sound_id' => $sound_id
+                ]);
             }
 
-            $data3['sound_id'] = $sound_id;
-            Post::where('post_id', $post_id)->update($data3);
+            // Update post with sound ID
+            try {
+                $data3['sound_id'] = $sound_id;
+                Post::where('post_id', $post_id)->update($data3);
+                Log::info('addPost: Post updated with sound ID', [
+                    'user_id' => $user_id,
+                    'post_id' => $post_id,
+                    'sound_id' => $sound_id
+                ]);
+            } catch (\Exception $e) {
+                Log::error('addPost: Post sound ID update failed', [
+                    'user_id' => $user_id,
+                    'post_id' => $post_id,
+                    'sound_id' => $sound_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            
+            // Cache invalidation
+            Log::info('addPost: Starting cache invalidation', [
+                'user_id' => $user_id,
+                'post_id' => $post_id
+            ]);
             
             // Invalidate cache for this user's videos
             $this->invalidateUserVideosCache($user_id);
@@ -374,8 +572,22 @@ class PostController extends Controller
                 $this->invalidateHashtagCaches($post_hash_tag);
             }
 
+            Log::info('addPost: Post creation completed successfully', [
+                'user_id' => $user_id,
+                'post_id' => $post_id,
+                'has_video' => !empty($post_video),
+                'has_image' => !empty($post_image),
+                'has_hashtags' => !empty($post_hash_tag),
+                'sound_type' => $is_orignal_sound == 1 ? 'original' : 'existing',
+                'sound_id' => $sound_id
+            ]);
+
             return response()->json(['status' => 200, 'message' => "Post Added Successfully."]);
         } else {
+            Log::error('addPost: Post insertion failed - insert_post returned false', [
+                'user_id' => $user_id,
+                'post_data' => $data
+            ]);
             return response()->json(['status' => 401, 'message' => "Error While Add Post."]);
         }
     }

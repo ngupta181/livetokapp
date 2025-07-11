@@ -23,6 +23,10 @@
             <li class="dropdown @if (request()->is('user/*')) {{ 'active' }} @endif ">
                 <a href="{{ url('/user/list') }}" class="nav-link"><i data-feather="users"></i><span>Users</span></a>
             </li>
+            
+            <li class="dropdown @if (request()->is('blocked-ips/*')) {{ 'active' }} @endif ">
+                <a href="{{ url('/blocked-ips/list') }}" class="nav-link"><i data-feather="shield"></i><span>Blocked IPs</span></a>
+            </li>
             <li class="dropdown {{ active_class(['post/list']) }}">
                 <a href="{{ url('/post/list') }}" class="nav-link"><i data-feather="video"></i><span>Post</span></a>
             </li>

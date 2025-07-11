@@ -13,14 +13,15 @@
 use App\Http\Controllers\Admin\SettingsController;
 use Illuminate\Support\Facades\Route;
 
-    Route::post('login', 'API\UserController@Registration')->name('login');
+    Route::post('login', 'API\UserController@Registration')->name('login')->middleware('security');
+    //Route::post('login', 'API\UserController@Registration')->name('login');    
     Route::get('getVersion','API\AppVersionController@getVersion');
     Route::get('v/{shortCode}', 'API\PostController@resolveShareableLink');
-    Route::prefix('User')->group(function () {
+    Route::prefix('User')->middleware('security')->group(function () {
     Route::post('Registration', 'API\UserController@Registration');
     Route::post('getProfile', 'API\UserController@getProfile');
     Route::get('getUserLevel', 'API\UserController@getUserLevel');
-    Route::post('updateUserLevelPoints', 'API\UserController@updateUserLevelPoints');
+    Route::post('updateUserLevelPoints', 'API\UserController@updateUserLevelPoints')->middleware('wallet.security');
 });
 
 Route::prefix('Post')->group(function () {
@@ -52,7 +53,7 @@ Route::post('fetchSettingsData', [SettingsController::class, 'fetchSettingsData'
 
 Route::post('uploadFileGivePath', 'API\PostController@uploadFileGivePath');
 
-Route::group(['middleware' => 'auth:api'], function () {
+Route::group(['middleware' => ['auth:api', 'security']], function () {
     
     //Route::get('getVersion','API\AppVersionController@getVersion');
 
@@ -92,7 +93,7 @@ Route::group(['middleware' => 'auth:api'], function () {
 
     });
 
-    Route::prefix('Wallet')->group(function () {
+    Route::prefix('Wallet')->middleware(['security', 'wallet.security'])->group(function () {
         Route::post('addCoin', 'API\WalletController@addCoin');
         Route::post('sendCoin', 'API\WalletController@sendCoin');
         Route::post('purchaseCoin', 'API\WalletController@purchaseCoin');
@@ -101,6 +102,19 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::post('redeemRequest', 'API\WalletController@redeemRequest');
         Route::post('getTransactionHistory', 'API\WalletController@getTransactionHistory');
 
+    });
+
+    // PK Battle Routes
+    Route::prefix('PkBattle')->group(function () {
+        Route::post('createBattle', 'API\PkBattleController@createBattle');
+        Route::post('respondToBattle', 'API\PkBattleController@respondToBattle');
+        Route::get('getActiveBattles', 'API\PkBattleController@getActiveBattles');
+        Route::post('getBattleDetails', 'API\PkBattleController@getBattleDetails');
+        Route::post('sendBattleGift', 'API\PkBattleController@sendBattleGift');
+        Route::post('endBattle', 'API\PkBattleController@endBattle');
+        Route::post('cancelBattle', 'API\PkBattleController@cancelBattle');
+        Route::post('cleanupMyBattles', 'API\PkBattleController@cleanupMyBattles');
+        Route::get('getUserBattleHistory', 'API\PkBattleController@getUserBattleHistory');
     });
 });
 

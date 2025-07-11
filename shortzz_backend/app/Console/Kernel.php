@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\SyncShazamMusic::class,
+        \App\Console\Commands\UnblockIp::class,
+        \App\Console\Commands\CheckIpStatus::class,
     ];
 
     /**
