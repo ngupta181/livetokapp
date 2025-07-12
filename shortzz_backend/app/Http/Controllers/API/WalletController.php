@@ -149,7 +149,7 @@ class WalletController extends Controller
 
         $rules = [
             'to_user_id' => 'required|integer|min:1|exists:tbl_users,user_id',
-            'coin' => 'required|integer|min:1|max:10000',
+            'coin' => 'required|integer|in:5,10,15,20',
         ];
 
         $validator = Validator::make($request->all(), $rules);
