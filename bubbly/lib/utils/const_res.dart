@@ -1,7 +1,7 @@
 import 'image_utils.dart';
 
 class ConstRes {
-  static final String base = 'http://54.152.126.254/';
+  static final String base = 'http://54.89.78.86/';
   // static final String base = 'https://livetok.app/';
   static const String apiKey = 'Y29tLmxpdmUudG9rLmFwcA==';
   static final String baseUrl = '${base}api/';

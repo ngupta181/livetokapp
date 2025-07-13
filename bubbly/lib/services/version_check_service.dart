@@ -17,6 +17,7 @@ class VersionCheckService {
       // Get minimum version from backend
       try {
         final response = await ApiService().getAppVersion();
+        print('⚡ API response received successfully');
         _versionData = response.data;
       } catch (e) {
         print('⚡ API error: $e');
@@ -26,11 +27,23 @@ class VersionCheckService {
           return false;
         }
         // For other errors, continue without forcing update
+        print('⚡ Continuing without version check due to API error');
         return false;
       }
       
       if (_versionData == null) {
         print('⚡ No version data received from API');
+        return false;
+      }
+      
+      // Validate required fields
+      if (_versionData!.minimumVersion == null || _versionData!.minimumVersion!.isEmpty) {
+        print('⚡ Error: minimum_version is null or empty');
+        return false;
+      }
+      
+      if (_versionData!.latestVersion == null || _versionData!.latestVersion!.isEmpty) {
+        print('⚡ Error: latest_version is null or empty');
         return false;
       }
       
@@ -46,27 +59,41 @@ class VersionCheckService {
       print('⚡ Comparing current version with: $versionToCompare (using ${_versionData!.forceUpdate == true ? "latest" : "minimum"} version)');
       
       // Compare versions
-      List<int> currentParts = currentVersion.split('.').map(int.parse).toList();
-      List<int> requiredParts = versionToCompare.split('.').map(int.parse).toList();
-      
-      for (int i = 0; i < 3; i++) {
-        if (currentParts[i] < requiredParts[i]) {
-          print('⚡ Update required: Current version ($currentVersion) is lower than required ($versionToCompare)');
-          return true; // Update required
-        } else if (currentParts[i] > requiredParts[i]) {
-          print('⚡ No update required: Current version ($currentVersion) is higher than required ($versionToCompare)');
-          return false; // No update required
+      try {
+        List<int> currentParts = currentVersion.split('.').map(int.parse).toList();
+        List<int> requiredParts = versionToCompare.split('.').map(int.parse).toList();
+        
+        // Ensure both version arrays have at least 3 parts
+        while (currentParts.length < 3) currentParts.add(0);
+        while (requiredParts.length < 3) requiredParts.add(0);
+        
+        print('⚡ Current version parts: $currentParts');
+        print('⚡ Required version parts: $requiredParts');
+        
+        for (int i = 0; i < 3; i++) {
+          if (currentParts[i] < requiredParts[i]) {
+            print('⚡ Update required: Current version ($currentVersion) is lower than required ($versionToCompare)');
+            return true; // Update required
+          } else if (currentParts[i] > requiredParts[i]) {
+            print('⚡ No update required: Current version ($currentVersion) is higher than required ($versionToCompare)');
+            return false; // No update required
+          }
         }
+        
+        // If force_update is true and versions are equal, still require update
+        if (_versionData!.forceUpdate == true && currentVersion == versionToCompare) {
+          print('⚡ Update required: Force update is enabled and newer version is available');
+          return true;
+        }
+        
+        print('⚡ No update required: Current version ($currentVersion) equals required ($versionToCompare)');
+        return false; // Versions are equal, no update required
+      } catch (e) {
+        print('⚡ Error parsing version numbers: $e');
+        print('⚡ Current version string: "$currentVersion"');
+        print('⚡ Required version string: "$versionToCompare"');
+        return false;
       }
-      
-      // If force_update is true and versions are equal, still require update
-      if (_versionData!.forceUpdate == true && currentVersion == versionToCompare) {
-        print('⚡ Update required: Force update is enabled and newer version is available');
-        return true;
-      }
-      
-      print('⚡ No update required: Current version ($currentVersion) equals required ($versionToCompare)');
-      return false; // Versions are equal, no update required
     } catch (e) {
       print('⚡ Error checking for updates: $e');
       return false;

@@ -91,7 +91,7 @@
             android:value="true" />
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-1698890153245489~9200035264" />
+            android:value="ca-app-pub-1698890153245489~8280902938" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

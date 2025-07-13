@@ -6,8 +6,23 @@ class AppVersionResponse {
   AppVersionResponse({this.status, this.message, this.data});
 
   AppVersionResponse.fromJson(Map<String, dynamic> json) {
-    status = json['status'];
-    message = json['message'];
+    // Handle status field that can be int or bool
+    if (json['status'] != null) {
+      if (json['status'] is bool) {
+        status = json['status'];
+      } else if (json['status'] is int) {
+        status = json['status'] == 200 || json['status'] == 1;
+      } else if (json['status'] is String) {
+        status = json['status'] == 'true' || json['status'] == '200';
+      } else {
+        // Default to false for unknown types
+        status = false;
+      }
+    } else {
+      status = false;
+    }
+    
+    message = json['message']?.toString();
     data = json['data'] != null ? AppVersionData.fromJson(json['data']) : null;
   }
 
@@ -40,18 +55,28 @@ class AppVersionData {
   });
 
   AppVersionData.fromJson(Map<String, dynamic> json) {
-    minimumVersion = json['minimum_version'];
-    latestVersion = json['latest_version'];
-    updateMessage = json['update_message'];
+    minimumVersion = json['minimum_version']?.toString();
+    latestVersion = json['latest_version']?.toString();
+    updateMessage = json['update_message']?.toString();
+    
+    // Handle force_update field that can be bool, int, or string
     if (json['force_update'] != null) {
       if (json['force_update'] is bool) {
         forceUpdate = json['force_update'];
       } else if (json['force_update'] is int) {
         forceUpdate = json['force_update'] == 1;
+      } else if (json['force_update'] is String) {
+        forceUpdate = json['force_update'].toLowerCase() == 'true' || json['force_update'] == '1';
+      } else {
+        // Default to false for unknown types
+        forceUpdate = false;
       }
+    } else {
+      forceUpdate = false;
     }
-    playStoreUrl = json['play_store_url'];
-    appStoreUrl = json['app_store_url'];
+    
+    playStoreUrl = json['play_store_url']?.toString();
+    appStoreUrl = json['app_store_url']?.toString();
   }
 
   Map<String, dynamic> toJson() {

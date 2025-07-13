@@ -343,9 +343,13 @@ class _MyBubblyAppState extends State<MyBubblyApp> {
 
   Future<void> _checkForUpdate() async {
     try {
+      print('⚡ Starting version check...');
       bool updateRequired = await VersionCheckService.checkForUpdate();
+      print('⚡ Version check result: updateRequired = $updateRequired');
+      
       if (updateRequired) {
         if (mounted) {
+          print('⚡ Showing force update dialog');
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -354,11 +358,13 @@ class _MyBubblyAppState extends State<MyBubblyApp> {
         }
       } else {
         // Proceed with normal app flow when no update is required
+        print('⚡ No update required, proceeding with normal app flow');
         _getUserData();
       }
     } catch (e) {
-      print('Error checking for updates: $e');
+      print('⚡ Error checking for updates: $e');
       // Proceed with normal app flow even if version check fails
+      print('⚡ Continuing with app flow despite version check error');
       _getUserData();
     }
   }
