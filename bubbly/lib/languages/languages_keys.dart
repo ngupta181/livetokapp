@@ -317,4 +317,5 @@ class LKey {
   static const amountInUsd = 'amountInUsd';
   static const pleaseEnterValidAmount = 'pleaseEnterValidAmount';
   static const insufficientCoins = 'insufficientCoins';
+  static const viewers = 'viewers';
 }

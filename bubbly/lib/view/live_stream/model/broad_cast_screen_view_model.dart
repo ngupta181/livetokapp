@@ -20,8 +20,10 @@ import 'package:bubbly/view/live_stream/screen/live_stream_end_screen.dart';
 import 'package:bubbly/view/live_stream/widget/gift_animation_controller.dart';
 import 'package:bubbly/view/live_stream/widget/gift_sheet.dart';
 import 'package:bubbly/view/live_stream/widget/level_up_animation_controller.dart';
+import 'package:bubbly/view/live_stream/widget/co_host_invitation_dialog.dart';
 import 'package:bubbly/view/profile/profile_screen.dart';
 import 'package:bubbly/view/wallet/dialog_coins_plan.dart';
+import 'package:bubbly/services/co_host_invitation_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -45,16 +47,28 @@ class BroadCastScreenViewModel extends BaseViewModel {
     prefData();
     rtcEngineHandlerCall();
     setupVideoSDKEngine();
+    
+    // Listen for co-host invitations if not host
+    if (!isHost) {
+      _listenForInvitations();
+    }
   }
 
   String _agoraToken = '';
   String _channelName = '';
+  
+  // Getters for private fields
+  String get agoraToken => _agoraToken;
+  String get channelName => _channelName;
+  int? get coHostID => _coHostID;
   User? registrationUser;
   int _localUserID = 0; //  local user uid
   int? _remoteID; //  remote user uid
+  int? _coHostID; //  co-host user uid
   bool _isJoined = false; // Indicates if the local user has joined the channel
   bool isHost =
       true; // Indicates whether the user has joined as a host or audience
+  bool isCoHost = false; // Indicates if user is a co-host
   late RtcEngine agoraEngine; // Agora engine instance
   RtcEngineEventHandler? engineEventHandler;
   bool isMic = false;
@@ -65,6 +79,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
   SessionManager pref = SessionManager();
   User? user;
   StreamSubscription<QuerySnapshot<LiveStreamComment>>? commentStream;
+  StreamSubscription<QuerySnapshot>? invitationStream;
   bool startStop = true;
   Timer? timer;
   Stopwatch watch = Stopwatch();
@@ -117,19 +132,33 @@ class BroadCastScreenViewModel extends BaseViewModel {
         notifyListeners();
       },
       onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        _remoteID = remoteUid;
+        print('User joined: $remoteUid, isHost: $isHost, isCoHost: $isCoHost');
+        
+        if (isHost) {
+          // Host sees co-host joining
+          _coHostID = remoteUid;
+        } else if (isCoHost) {
+          // Co-host sees host
+          _remoteID = remoteUid;
+        } else {
+          // Regular audience sees host
+          _remoteID = remoteUid;
+        }
         notifyListeners();
       },
-      onUserOffline: (RtcConnection connection, int remoteUid,
+       onUserOffline: (RtcConnection connection, int remoteUid,
           UserOfflineReasonType reason) {
-        print('onUserOffline');
+        print('onUserOffline: $remoteUid');
         if (Get.isBottomSheetOpen == true) {
           Get.back();
         }
-        _remoteID = null;
-        agoraEngine.leaveChannel();
-        agoraEngine.release();
-        Get.back();
+        
+        if (remoteUid == _coHostID) {
+          _coHostID = null;
+        } else if (remoteUid == _remoteID) {
+          _remoteID = null;
+        }
+        notifyListeners();
       },
       onLeaveChannel: (connection, stats) {
         if (isHost) {
@@ -142,8 +171,14 @@ class BroadCastScreenViewModel extends BaseViewModel {
   Widget videoPanel() {
     if (!_isJoined) {
       return LoaderDialog();
+    } else if (isHost && _coHostID != null) {
+      // Host with co-host - split screen view
+      return _buildSplitScreenView();
+    } else if (isCoHost && _remoteID != null) {
+      // Co-host with host - split screen view
+      return _buildSplitScreenView();
     } else if (isHost) {
-      // Local user joined as a host
+      // Host without co-host - full screen
       return AgoraVideoView(
         controller: VideoViewController(
             rtcEngine: agoraEngine,
@@ -152,6 +187,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
                 sourceType: VideoSourceType.videoSourceCameraPrimary)),
       );
     } else {
+      // Audience viewing host
       return _remoteID != null
           ? AgoraVideoView(
               controller: VideoViewController.remote(
@@ -162,6 +198,118 @@ class BroadCastScreenViewModel extends BaseViewModel {
             )
           : SizedBox();
     }
+  }
+
+  Widget _buildSplitScreenView() {
+    return Column(
+      children: [
+        // Top half - Host video
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: Stack(
+              children: [
+                // Host video (local for host, remote for co-host)
+                isHost
+                    ? AgoraVideoView(
+                        controller: VideoViewController(
+                            rtcEngine: agoraEngine,
+                            canvas: VideoCanvas(
+                                uid: _localUserID,
+                                sourceType: VideoSourceType.videoSourceCameraPrimary)),
+                      )
+                    : (_remoteID != null
+                        ? AgoraVideoView(
+                            controller: VideoViewController.remote(
+                              rtcEngine: agoraEngine,
+                              canvas: VideoCanvas(uid: _remoteID),
+                              connection: RtcConnection(channelId: _channelName),
+                            ),
+                          )
+                        : Container(color: Colors.black)),
+                
+                // Host label
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isHost ? 'You (Host)' : 'Host',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Divider
+        Container(
+          height: 2,
+          color: Colors.white,
+        ),
+        
+        // Bottom half - Co-host video
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            child: Stack(
+              children: [
+                // Co-host video (remote for host, local for co-host)
+                isHost
+                    ? (_coHostID != null
+                        ? AgoraVideoView(
+                            controller: VideoViewController.remote(
+                              rtcEngine: agoraEngine,
+                              canvas: VideoCanvas(uid: _coHostID),
+                              connection: RtcConnection(channelId: _channelName),
+                            ),
+                          )
+                        : Container(color: Colors.black))
+                    : AgoraVideoView(
+                        controller: VideoViewController(
+                            rtcEngine: agoraEngine,
+                            canvas: VideoCanvas(
+                                uid: _localUserID,
+                                sourceType: VideoSourceType.videoSourceCameraPrimary)),
+                      ),
+                
+                // Co-host label
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isHost ? 'Co-Host' : 'You (Co-Host)',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> setupVideoSDKEngine() async {
@@ -621,10 +769,106 @@ class BroadCastScreenViewModel extends BaseViewModel {
     pref.saveString(KeyRes.liveStreamProfile, "${liveStreamUser?.userImage}");
   }
 
+  // Listen for co-host invitations
+  void _listenForInvitations() async {
+    await pref.initPref();
+    final currentUser = pref.getUser();
+    
+    if (currentUser?.data?.userId != null) {
+      invitationStream = CoHostInvitationService.listenForInvitations(
+        currentUser!.data!.userId!,
+      ).listen((snapshot) {
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          
+          // Check if invitation is still valid (not expired)
+          final expiresAt = data['expiresAt'] as int?;
+          if (expiresAt != null && DateTime.now().millisecondsSinceEpoch > expiresAt) {
+            // Invitation expired, skip
+            continue;
+          }
+          
+          // Show invitation dialog
+          _showInvitationDialog(data);
+        }
+      });
+    }
+  }
+
+  void _showInvitationDialog(Map<String, dynamic> invitationData) {
+    Get.dialog(
+      CoHostInvitationDialog(
+        roomId: invitationData['roomId'] ?? '',
+        hostName: invitationData['hostName'] ?? 'Host',
+        hostImage: invitationData['hostImage'],
+        invitedUserId: invitationData['invitedUserId'] ?? 0,
+        onAccepted: () {
+          // Handle invitation acceptance
+          print('Co-host invitation accepted');
+          _promoteToCoHost(invitationData['roomId'] ?? '');
+        },
+        onDeclined: () {
+          // Handle invitation decline
+          print('Co-host invitation declined');
+        },
+      ),
+      barrierDismissible: false, // Prevent dismissing by tapping outside
+    );
+  }
+
+  // Promote current user to co-host
+  Future<void> _promoteToCoHost(String roomId) async {
+    try {
+      // Leave current channel as audience
+      await agoraEngine.leaveChannel();
+      
+      // Update local state
+      isCoHost = true;
+      isHost = false;
+      
+      // Rejoin as broadcaster (co-host)
+      await agoraEngine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+      await agoraEngine.enableVideo();
+      await agoraEngine.enableAudio();
+      
+      // Join the channel again as co-host
+      await agoraEngine.joinChannel(
+        token: _agoraToken,
+        channelId: roomId,
+        uid: _localUserID,
+        options: ChannelMediaOptions(
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+        ),
+      );
+      
+      notifyListeners();
+      
+      Get.snackbar(
+        'Co-Host Activated',
+        'You are now a co-host! Your camera is now live.',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+      
+    } catch (e) {
+      print('Error promoting to co-host: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to activate co-host mode. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+    }
+  }
+
   @override
   void dispose() {
     commentController.dispose();
     commentStream?.cancel();
+    invitationStream?.cancel(); // Clean up invitation stream
     agoraEngine.unregisterEventHandler(engineEventHandler!);
     timer?.cancel();
     minimumUserLiveTimer?.cancel();
