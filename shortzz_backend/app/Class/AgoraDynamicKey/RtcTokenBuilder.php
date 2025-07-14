@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Classes\AgoraDynamicKey;
+namespace App\Class\AgoraDynamicKey;
 require_once "AccessToken.php";
 
 class RtcTokenBuilder

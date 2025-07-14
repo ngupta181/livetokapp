@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Classes\AgoraDynamicKey;
+namespace App\Class\AgoraDynamicKey;
 class Message
 {
       public $salt;

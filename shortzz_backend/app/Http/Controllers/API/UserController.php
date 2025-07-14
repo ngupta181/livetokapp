@@ -35,7 +35,6 @@ use Google\Client;
 use Illuminate\Support\Facades\File as FacadesFile;
 use Illuminate\Support\Facades\Validator;
 use Torann\GeoIP\Facades\GeoIP;
-include_once base_path('app/Class/AgoraDynamicKey/RtcTokenBuilder.php');
 
 class UserController extends Controller
 {
