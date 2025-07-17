@@ -11,6 +11,56 @@ import 'package:bubbly/view/pk_battle/widgets/battle_gift_buttons.dart';
 import 'package:bubbly/view/pk_battle/controllers/pk_battle_controller.dart';
 import 'package:bubbly/utils/pk_battle_config.dart';
 
+// Responsive configuration class
+class ResponsiveConfig {
+  final double screenWidth;
+  final double screenHeight;
+  final bool isTablet;
+  final bool isLandscape;
+  final double pixelRatio;
+
+  ResponsiveConfig({
+    required this.screenWidth,
+    required this.screenHeight,
+    required this.isTablet,
+    required this.isLandscape,
+    required this.pixelRatio,
+  });
+
+  // Responsive sizing methods
+  double get headerPadding => isTablet ? 24.0 : 16.0;
+  double get headerFontSize => isTablet ? 20.0 : 16.0;
+  double get iconSize => isTablet ? 28.0 : 20.0;
+  double get vsIndicatorSize => isTablet ? 80.0 : 60.0;
+  double get progressBarHeight => isTablet ? 12.0 : 8.0;
+  double get coinCountPadding => isTablet ? 16.0 : 12.0;
+  double get coinCountFontSize => isTablet ? 16.0 : 14.0;
+  double get timerFontSize => isTablet ? 24.0 : 20.0;
+  double get borderRadius => isTablet ? 30.0 : 25.0;
+  
+  // Dynamic spacing based on screen size (increased for better alignment)
+  double get verticalSpacing => screenHeight * 0.015; // 1.5% of screen height (increased)
+  double get horizontalPadding => screenWidth * 0.04; // 4% of screen width
+  
+  // Video overlay height based on screen size and orientation (reduced for better fit)
+  double get videoOverlayHeight {
+    if (isLandscape) {
+      return screenHeight * 0.25; // 25% of screen height in landscape (reduced)
+    } else {
+      return screenHeight * 0.20; // 20% of screen height in portrait (reduced)
+    }
+  }
+  
+  // Battle header height
+  double get battleHeaderHeight => isTablet ? 60.0 : 50.0;
+  
+  // Responsive margins
+  EdgeInsets get containerMargin => EdgeInsets.symmetric(
+    horizontal: horizontalPadding,
+    vertical: verticalSpacing,
+  );
+}
+
 class BattleView extends StatefulWidget {
   final bool isAudience;
   final bool isHost;
@@ -44,6 +94,23 @@ class _BattleViewState extends State<BattleView> {
   void dispose() {
     Get.delete<PKBattleController>();
     super.dispose();
+  }
+
+  // Responsive design helper methods
+  ResponsiveConfig _getResponsiveConfig(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final screenHeight = mediaQuery.size.height;
+    final isTablet = screenWidth > 600;
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    
+    return ResponsiveConfig(
+      screenWidth: screenWidth,
+      screenHeight: screenHeight,
+      isTablet: isTablet,
+      isLandscape: isLandscape,
+      pixelRatio: mediaQuery.devicePixelRatio,
+    );
   }
 
   @override
@@ -80,9 +147,10 @@ class _BattleViewState extends State<BattleView> {
 
   Widget _buildMainBattleView(Livestream livestream, List<LivestreamUserState> userStates) {
     final participants = userStates.where((state) => state.isParticipant).toList();
+    final config = _getResponsiveConfig(context);
     
     if (participants.length < 2) {
-      return _buildWaitingForParticipants();
+      return _buildWaitingForParticipants(config);
     }
 
     final host = participants.firstWhere((p) => p.isHost, orElse: () => participants.first);
@@ -91,26 +159,31 @@ class _BattleViewState extends State<BattleView> {
     return Column(
       children: [
         // Battle header
-        _buildBattleHeader(livestream),
-        const SizedBox(height: 4),
+        _buildBattleHeader(livestream, config),
+        SizedBox(height: config.verticalSpacing),
         
         // Progress bar with integrated coin counts (moved higher)
-        _buildProgressBar(host, coHost),
-        const SizedBox(height: 4),
+        _buildProgressBar(host, coHost, config),
+        SizedBox(height: config.verticalSpacing),
         
         // Video overlay with VS indicator only
-        _buildVideoOverlay(host, coHost),
-        const SizedBox(height: 4),
+        _buildVideoOverlay(host, coHost, config),
+        SizedBox(height: config.verticalSpacing),
         
         // Battle timer below the video overlay
-        _buildBattleTimer(livestream),
+        _buildBattleTimer(livestream, config),
       ],
     );
   }
 
-  Widget _buildBattleHeader(Livestream livestream) {
+  Widget _buildBattleHeader(Livestream livestream, ResponsiveConfig config) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      height: config.battleHeaderHeight,
+      padding: EdgeInsets.symmetric(
+        horizontal: config.headerPadding,
+        vertical: config.headerPadding * 0.6,
+      ),
+      margin: config.containerMargin,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -120,38 +193,42 @@ class _BattleViewState extends State<BattleView> {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(config.borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 2,
+            blurRadius: config.isTablet ? 12 : 8,
+            spreadRadius: config.isTablet ? 3 : 2,
           ),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.flash_on,
             color: Colors.white,
-            size: 24,
+            size: config.iconSize,
           ),
-          const SizedBox(width: 8),
-          Text(
-            _getBattleStatusText(livestream.battleType),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
+          SizedBox(width: config.horizontalPadding * 0.2),
+          Flexible(
+            child: Text(
+              _getBattleStatusText(livestream.battleType),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: config.headerFontSize,
+                fontWeight: FontWeight.bold,
+                letterSpacing: config.isTablet ? 2.0 : 1.5,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(
+          SizedBox(width: config.horizontalPadding * 0.2),
+          Icon(
             Icons.flash_on,
             color: Colors.white,
-            size: 24,
+            size: config.iconSize,
           ),
         ],
       ),
@@ -221,98 +298,112 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
-  Widget _buildProgressBar(LivestreamUserState host, LivestreamUserState coHost) {
-    return BattleProgressBar(
-      redCoins: host.currentBattleCoin,
-      blueCoins: coHost.currentBattleCoin,
-    );
-  }
-
-  Widget _buildCoinCounts(LivestreamUserState host, LivestreamUserState coHost) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Host coin count (left side - red)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Color(PKBattleConfig.redTeamColor),
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Color(PKBattleConfig.redTeamColor).withOpacity(0.3),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.monetization_on,
-                color: Colors.white,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                PKBattleConfig.formatCoins(host.currentBattleCoin),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Co-host coin count (right side - blue)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Color(PKBattleConfig.blueTeamColor),
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Color(PKBattleConfig.blueTeamColor).withOpacity(0.3),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.monetization_on,
-                color: Colors.white,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                PKBattleConfig.formatCoins(coHost.currentBattleCoin),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVideoOverlay(LivestreamUserState host, LivestreamUserState coHost) {
+  Widget _buildProgressBar(LivestreamUserState host, LivestreamUserState coHost, ResponsiveConfig config) {
     return Container(
-      height: 300, // Reduced height since we only have VS indicator
+      margin: config.containerMargin,
+      child: BattleProgressBar(
+        redCoins: host.currentBattleCoin,
+        blueCoins: coHost.currentBattleCoin,
+        height: config.progressBarHeight,
+      ),
+    );
+  }
+
+  Widget _buildCoinCounts(LivestreamUserState host, LivestreamUserState coHost, ResponsiveConfig config) {
+    return Container(
+      margin: config.containerMargin,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Host coin count (left side - red)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: config.coinCountPadding,
+              vertical: config.coinCountPadding * 0.5,
+            ),
+            decoration: BoxDecoration(
+              color: Color(PKBattleConfig.redTeamColor),
+              borderRadius: BorderRadius.circular(config.borderRadius * 0.6),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(PKBattleConfig.redTeamColor).withOpacity(0.3),
+                  blurRadius: config.isTablet ? 6 : 4,
+                  spreadRadius: config.isTablet ? 2 : 1,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.monetization_on,
+                  color: Colors.white,
+                  size: config.isTablet ? 20 : 16,
+                ),
+                SizedBox(width: config.horizontalPadding * 0.1),
+                Text(
+                  PKBattleConfig.formatCoins(host.currentBattleCoin),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: config.coinCountFontSize,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Co-host coin count (right side - blue)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: config.coinCountPadding,
+              vertical: config.coinCountPadding * 0.5,
+            ),
+            decoration: BoxDecoration(
+              color: Color(PKBattleConfig.blueTeamColor),
+              borderRadius: BorderRadius.circular(config.borderRadius * 0.6),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(PKBattleConfig.blueTeamColor).withOpacity(0.3),
+                  blurRadius: config.isTablet ? 6 : 4,
+                  spreadRadius: config.isTablet ? 2 : 1,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.monetization_on,
+                  color: Colors.white,
+                  size: config.isTablet ? 20 : 16,
+                ),
+                SizedBox(width: config.horizontalPadding * 0.1),
+                Text(
+                  PKBattleConfig.formatCoins(coHost.currentBattleCoin),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: config.coinCountFontSize,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoOverlay(LivestreamUserState host, LivestreamUserState coHost, ResponsiveConfig config) {
+    return Container(
+      height: config.videoOverlayHeight,
+      margin: config.containerMargin,
       child: Center(
         // Only VS indicator in the center
         child: Container(
-          width: 60,
-          height: 300,
+          width: config.vsIndicatorSize,
+          height: config.vsIndicatorSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -326,17 +417,17 @@ class _BattleViewState extends State<BattleView> {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
-                blurRadius: 8,
-                spreadRadius: 2,
+                blurRadius: config.isTablet ? 12 : 8,
+                spreadRadius: config.isTablet ? 3 : 2,
               ),
             ],
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               'VS',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: config.isTablet ? 20 : 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
               ),
@@ -347,14 +438,17 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
-  Widget _buildBattleTimer(Livestream livestream) {
-    return Obx(() {
-      return BattleTimer(
-        livestream: livestream,
-        remainingSeconds: controller.remainingSeconds.value,
-        onBattleEnd: () => controller.endBattle(),
-      );
-    });
+  Widget _buildBattleTimer(Livestream livestream, ResponsiveConfig config) {
+    return Container(
+      margin: config.containerMargin,
+      child: Obx(() {
+        return BattleTimer(
+          livestream: livestream,
+          remainingSeconds: controller.remainingSeconds.value,
+          onBattleEnd: () => controller.endBattle(),
+        );
+      }),
+    );
   }
 
   Widget _buildGiftButtons(List<LivestreamUserState> participants) {
@@ -377,35 +471,36 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
-  Widget _buildWaitingForParticipants() {
+  Widget _buildWaitingForParticipants(ResponsiveConfig config) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(config.headerPadding),
+      margin: config.containerMargin,
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(config.borderRadius * 0.6),
         border: Border.all(color: Colors.grey, width: 1),
       ),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.people_outline,
-            size: 48,
+            size: config.isTablet ? 64 : 48,
             color: Colors.grey,
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: config.verticalSpacing * 2),
+          Text(
             'Waiting for participants...',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: config.headerFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.grey,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: config.verticalSpacing),
+          Text(
             'A co-host needs to join to start the battle',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: config.isTablet ? 16 : 14,
               color: Colors.grey,
             ),
             textAlign: TextAlign.center,

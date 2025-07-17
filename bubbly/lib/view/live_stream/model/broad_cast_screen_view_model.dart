@@ -146,12 +146,13 @@ class BroadCastScreenViewModel extends BaseViewModel {
           
           try {
             if (isHost) {
-              // For host: Set co-host ID for any broadcaster joining (simplified approach)
-              // We'll assume that if someone joins as a broadcaster, they're a co-host
-              // This is a temporary solution until we have better co-host tracking
+              // For host: Set co-host ID for any broadcaster joining
               if (_coHostID == null) {
                 _coHostID = remoteUid;
                 print('Co-host detected with ID: $remoteUid');
+                
+                // Update Firebase document with co-host UID
+                _updateCoHostInFirebase(remoteUid);
                 
                 // Temporarily disabled automatic join message for co-host to prevent crashes
                 // TODO: Re-implement with better error handling
@@ -168,8 +169,20 @@ class BroadCastScreenViewModel extends BaseViewModel {
               // Co-host sees host
               _remoteID = remoteUid;
             } else {
-              // Regular audience sees host
-              _remoteID = remoteUid;
+              // Regular audience - identify users based on Firebase document
+              if (_remoteID == null) {
+                // First user joining is likely the host
+                _remoteID = remoteUid;
+                print('Audience: Host detected with ID: $remoteUid');
+              } else if (_coHostID == null && liveStreamUser?.coHostUIDs?.contains(remoteUid) == true) {
+                // User joining matches co-host UID from Firebase document
+                _coHostID = remoteUid;
+                print('Audience: Co-host detected with ID: $remoteUid (from Firebase)');
+              } else if (_coHostID == null) {
+                // Fallback: assume second broadcaster is co-host
+                _coHostID = remoteUid;
+                print('Audience: Co-host detected with ID: $remoteUid (fallback)');
+              }
               
               // Temporarily disabled automatic join message for viewers to prevent crashes
               // TODO: Re-implement with better error handling
@@ -233,16 +246,22 @@ class BroadCastScreenViewModel extends BaseViewModel {
                 sourceType: VideoSourceType.videoSourceCameraPrimary)),
       );
     } else {
-      // Audience viewing host
-      return _remoteID != null
-          ? AgoraVideoView(
-              controller: VideoViewController.remote(
-                rtcEngine: agoraEngine,
-                canvas: VideoCanvas(uid: _remoteID),
-                connection: RtcConnection(channelId: _channelName),
-              ),
-            )
-          : SizedBox();
+      // Audience viewing - check if there's a co-host
+      if (_coHostID != null && _remoteID != null) {
+        // Audience viewing both host and co-host - split screen view
+        return _buildAudienceSplitScreenView();
+      } else {
+        // Audience viewing host only
+        return _remoteID != null
+            ? AgoraVideoView(
+                controller: VideoViewController.remote(
+                  rtcEngine: agoraEngine,
+                  canvas: VideoCanvas(uid: _remoteID),
+                  connection: RtcConnection(channelId: _channelName),
+                ),
+              )
+            : SizedBox();
+      }
     }
   }
 
@@ -342,6 +361,103 @@ class BroadCastScreenViewModel extends BaseViewModel {
                     ),
                     child: Text(
                       isHost ? 'Co-Host' : 'You (Co-Host)',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // New method for audience to view both host and co-host
+  Widget _buildAudienceSplitScreenView() {
+    return Row(
+      children: [
+        // Left half - Host video
+        Expanded(
+          child: Container(
+            height: 300, // Fixed height of 300 pixels
+            child: Stack(
+              children: [
+                // Host video (always remote for audience)
+                _remoteID != null
+                    ? AgoraVideoView(
+                        controller: VideoViewController.remote(
+                          rtcEngine: agoraEngine,
+                          canvas: VideoCanvas(uid: _remoteID),
+                          connection: RtcConnection(channelId: _channelName),
+                        ),
+                      )
+                    : Container(color: Colors.black),
+                
+                // Host label
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Host',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Vertical divider (transparent)
+        Container(
+          width: 2,
+          color: Colors.transparent,
+        ),
+        
+        // Right half - Co-host video
+        Expanded(
+          child: Container(
+            height: 300, // Fixed height of 300 pixels
+            child: Stack(
+              children: [
+                // Co-host video (always remote for audience)
+                _coHostID != null
+                    ? AgoraVideoView(
+                        controller: VideoViewController.remote(
+                          rtcEngine: agoraEngine,
+                          canvas: VideoCanvas(uid: _coHostID),
+                          connection: RtcConnection(channelId: _channelName),
+                        ),
+                      )
+                    : Container(color: Colors.black),
+                
+                // Co-host label
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Co-Host',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -476,6 +592,11 @@ class BroadCastScreenViewModel extends BaseViewModel {
         .snapshots()
         .listen((event) {
       liveStreamUser = event.data();
+      
+      // For audience members, update co-host information from Firebase document
+      if (!isHost && !isCoHost && liveStreamUser != null) {
+        _updateAudienceCoHostInfo();
+      }
       
       // Check if livestream document was deleted (host ended the stream)
       if (!isHost && !event.exists && !_isDisposed) {
@@ -994,6 +1115,31 @@ class BroadCastScreenViewModel extends BaseViewModel {
 
   // Method to check if we have a co-host
   bool get hasCoHost => _coHostID != null;
+
+  // Method to update co-host information in Firebase
+  Future<void> _updateCoHostInFirebase(int coHostUID) async {
+    try {
+      List<int> coHostUIDs = [coHostUID];
+      await db.collection(FirebaseRes.liveStreamUser).doc(_channelName).update({
+        'coHostUIDs': coHostUIDs,
+      });
+      print('Updated Firebase with co-host UID: $coHostUID');
+    } catch (e) {
+      print('Error updating co-host in Firebase: $e');
+    }
+  }
+
+  // Method for audience to update co-host info from Firebase document
+  void _updateAudienceCoHostInfo() {
+    if (liveStreamUser?.coHostUIDs != null && liveStreamUser!.coHostUIDs!.isNotEmpty) {
+      final coHostUID = liveStreamUser!.coHostUIDs!.first;
+      if (_coHostID != coHostUID) {
+        _coHostID = coHostUID;
+        print('Audience: Updated co-host ID from Firebase: $coHostUID');
+        notifyListeners();
+      }
+    }
+  }
 
   // Temporary method to force co-host detection (for debugging)
   void forceCoHostDetection() {

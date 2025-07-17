@@ -14,6 +14,7 @@ class LiveStreamUser {
   int? _watchingCount;
   int? _followers;
   int? _userLevel;
+  List<int>? _coHostUIDs; // Track co-host UIDs
 
   LiveStreamUser(
       {String? agoraToken,
@@ -28,7 +29,8 @@ class LiveStreamUser {
       int? watchingCount,
       String? userName,
       int? followers,
-      int? userLevel}) {
+      int? userLevel,
+      List<int>? coHostUIDs}) {
     _agoraToken = agoraToken;
     _collectedDiamond = collectedDiamond;
     _fullName = fullName;
@@ -42,6 +44,7 @@ class LiveStreamUser {
     _userName = userName;
     _followers = followers;
     _userLevel = userLevel;
+    _coHostUIDs = coHostUIDs;
   }
 
   Map<String, dynamic> toJson() {
@@ -58,7 +61,8 @@ class LiveStreamUser {
       "watchingCount": _watchingCount,
       "userName": _userName,
       "followers": _followers,
-      "userLevel": _userLevel
+      "userLevel": _userLevel,
+      "coHostUIDs": _coHostUIDs
     };
   }
 
@@ -81,6 +85,9 @@ class LiveStreamUser {
     _userName = json?["userName"];
     _followers = json?["followers"];
     _userLevel = json?["userLevel"];
+    if (json?["coHostUIDs"] != null) {
+      _coHostUIDs = List<int>.from(json!["coHostUIDs"]);
+    }
   }
 
   Map<String, dynamic> toFireStore() {
@@ -97,7 +104,8 @@ class LiveStreamUser {
       "watchingCount": _watchingCount,
       "userName": _userName,
       "followers": _followers,
-      "userLevel": _userLevel
+      "userLevel": _userLevel,
+      "coHostUIDs": _coHostUIDs
     };
   }
 
@@ -110,6 +118,11 @@ class LiveStreamUser {
     data?['joinedUser'].forEach((v) {
       joinedUser.add(v);
     });
+    List<int> coHostUIDs = [];
+    if (data?['coHostUIDs'] != null) {
+      coHostUIDs = List<int>.from(data!['coHostUIDs']);
+    }
+    
     return LiveStreamUser(
       agoraToken: data?["agoraToken"],
       collectedDiamond: data?["collectedDiamond"],
@@ -124,6 +137,7 @@ class LiveStreamUser {
       userName: data?["userName"],
       followers: data?["followers"],
       userLevel: data?["userLevel"],
+      coHostUIDs: coHostUIDs,
     );
   }
 
@@ -152,6 +166,8 @@ class LiveStreamUser {
   int? get followers => _followers;
 
   int? get userLevel => _userLevel;
+
+  List<int>? get coHostUIDs => _coHostUIDs;
 }
 
 class LiveStreamComment {

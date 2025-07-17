@@ -79,24 +79,41 @@ class _AudienceScreenState extends State<AudienceScreen> {
                   isGiftSheetMinimized: model.isGiftSheetMinimized,
                 ),
                 
-                // PK Battle View - shows battle UI when battle is active (audience view)
+                // PK Battle View - shows battle UI when battle is active (responsive positioning for audience)
                 if (model.channelName != null)
-                  Positioned(
-                    top: 170, // Moved higher up to match host positioning
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.transparent, // Made transparent
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: BattleView(
-                        roomId: model.channelName!,
-                        isAudience: true, // Audience view
-                        isHost: false, // Audience is not host
-                        isCoHost: model.isCoHost, // Pass co-host status from model
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final mediaQuery = MediaQuery.of(context);
+                      final screenHeight = mediaQuery.size.height;
+                      final screenWidth = mediaQuery.size.width;
+                      final isTablet = screenWidth > 600;
+                      final isLandscape = mediaQuery.orientation == Orientation.landscape;
+                      
+                      // Responsive positioning based on screen size and orientation
+                      // Adjusted to avoid overlapping with top bar
+                      double topPosition;
+                      if (isLandscape) {
+                        topPosition = screenHeight * 0.20; // 20% from top in landscape
+                      } else if (isTablet) {
+                        topPosition = screenHeight * 0.22; // 22% from top on tablets
+                      } else {
+                        topPosition = screenHeight * 0.20; // 20% from top on phones (moved lower)
+                      }
+                      
+                      double horizontalMargin = screenWidth * 0.04; // 4% of screen width
+                      
+                      return Positioned(
+                        top: topPosition,
+                        left: horizontalMargin,
+                        right: horizontalMargin,
+                        child: BattleView(
+                          roomId: model.channelName!,
+                          isAudience: true, // Audience view
+                          isHost: false, // Audience is not host
+                          isCoHost: model.isCoHost, // Pass co-host status from model
+                        ),
+                      );
+                    },
                   ),
                 
                 // Level up animation display
