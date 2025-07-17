@@ -177,14 +177,14 @@ class _BattleGiftButtonsState extends State<BattleGiftButtons>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
-        image: user.user?.image != null
+        image: user.user?.userProfile != null
             ? DecorationImage(
-                image: NetworkImage(user.user!.image!),
+                image: NetworkImage(user.user!.userProfile!),
                 fit: BoxFit.cover,
               )
             : null,
       ),
-      child: user.user?.image == null
+      child: user.user?.userProfile == null
           ? Icon(
               Icons.person,
               color: Colors.white,

@@ -38,8 +38,8 @@ class LivestreamComment {
   String? comment;
   LivestreamCommentType type;
   int? giftId;
-  int? receiverId;
-  int senderId;
+  String? receiverId;
+  String senderId;
   UserData? sender;
   UserData? receiver;
   int createdAt;
@@ -121,4 +121,5 @@ class LivestreamComment {
   bool get isNormal => type == LivestreamCommentType.normal;
   bool get isSystem => type == LivestreamCommentType.system;
 }
+
 

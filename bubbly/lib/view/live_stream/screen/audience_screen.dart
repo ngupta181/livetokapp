@@ -5,6 +5,7 @@ import 'package:bubbly/view/live_stream/widget/swipeable_comments.dart';
 import 'package:bubbly/view/live_stream/widget/gift_queue_display.dart';
 import 'package:bubbly/view/live_stream/widget/level_up_animation.dart';
 import 'package:bubbly/view/live_stream/widget/level_up_animation_controller.dart';
+import 'package:bubbly/view/pk_battle/screens/battle_view.dart';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
@@ -49,6 +50,7 @@ class _AudienceScreenState extends State<AudienceScreen> {
         return PopScope(
           canPop: false,
           child: Scaffold(
+            backgroundColor: Colors.black, // Black background to match host UI
             body: Stack(
               children: [
                 // Base layer - video panel
@@ -76,6 +78,26 @@ class _AudienceScreenState extends State<AudienceScreen> {
                   isGiftSheetOpen: model.isGiftSheetOpen,
                   isGiftSheetMinimized: model.isGiftSheetMinimized,
                 ),
+                
+                // PK Battle View - shows battle UI when battle is active (audience view)
+                if (model.channelName != null)
+                  Positioned(
+                    top: 170, // Moved higher up to match host positioning
+                    left: 16,
+                    right: 16,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.transparent, // Made transparent
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: BattleView(
+                        roomId: model.channelName!,
+                        isAudience: true, // Audience view
+                        isHost: false, // Audience is not host
+                        isCoHost: model.isCoHost, // Pass co-host status from model
+                      ),
+                    ),
+                  ),
                 
                 // Level up animation display
                 AnimatedBuilder(

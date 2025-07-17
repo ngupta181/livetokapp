@@ -23,12 +23,21 @@ class LiveStreamChatList extends StatelessWidget {
     double tempSize = MediaQuery.of(pageContext).viewInsets.bottom == 0
         ? 0
         : MediaQuery.of(pageContext).viewInsets.bottom;
+    
+    // Calculate safe height with bounds checking
+    double screenHeight = MediaQuery.of(context).size.height;
+    double baseHeight = screenHeight - 270;
+    double calculatedHeight = (tempSize == 0)
+        ? baseHeight / 2
+        : baseHeight - tempSize - 50;
+    
+    // Ensure height is never negative or too small
+    double safeHeight = calculatedHeight.clamp(100.0, screenHeight * 0.6);
+    
     return Container(
-      margin: EdgeInsets.only(left: 10),
-      height: (tempSize == 0)
-          ? (MediaQuery.of(context).size.height - 270) / 2
-          : (MediaQuery.of(context).size.height - 270) - tempSize - 50,
-      width: MediaQuery.of(context).size.width,
+      margin: EdgeInsets.only(left: 10, right: 10),
+      height: safeHeight,
+      // Completely transparent - no background decoration
       child: ShaderMask(
         shaderCallback: (Rect bounds) {
           return const LinearGradient(
@@ -44,10 +53,12 @@ class LiveStreamChatList extends StatelessWidget {
           itemCount: commentList.length,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           reverse: true,
+          addAutomaticKeepAlives: true, // Ensure widgets are kept alive
+          addRepaintBoundaries: true, // Optimize repaint areas
           itemBuilder: (context, index) {
             final comment = commentList[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 14),
+            return Container(
+              padding: const EdgeInsets.only(bottom: 14, right: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -60,34 +71,42 @@ class LiveStreamChatList extends StatelessWidget {
                     fontSize: 14,
                   ),
                   const SizedBox(width: 8),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width / 1.5,
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(comment.fullName ?? '',
-                            style: TextStyle(
-                                color: ColorRes.white,
-                                fontSize: 13,
-                                fontFamily: FontRes.fNSfUiMedium)),
+                        Text(
+                          comment.fullName ?? '',
+                          style: TextStyle(
+                            color: ColorRes.white,
+                            fontSize: 13,
+                            fontFamily: FontRes.fNSfUiMedium,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         SizedBox(height: 2),
                         comment.commentType == "msg"
-                            ? Text(comment.comment ?? '',
+                            ? Text(
+                                comment.comment ?? '',
                                 style: TextStyle(
-                                    color: ColorRes.greyShade100, fontSize: 12))
+                                  color: ColorRes.greyShade100,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              )
                             : ClipRRect(
                                 borderRadius: BorderRadius.circular(15),
                                 child: BackdropFilter(
-                                  filter:
-                                      ImageFilter.blur(sigmaY: 15, sigmaX: 15),
+                                  filter: ImageFilter.blur(sigmaY: 15, sigmaX: 15),
                                   child: Container(
                                     height: 55,
                                     width: 55,
                                     padding: const EdgeInsets.all(5),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
-                                      color: ColorRes.colorPrimaryDark
-                                          .withOpacity(0.33),
+                                      color: ColorRes.colorPrimaryDark.withOpacity(0.33),
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
@@ -96,9 +115,15 @@ class LiveStreamChatList extends StatelessWidget {
                                         width: 40,
                                         height: 40,
                                         fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Container();
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: Colors.grey,
+                                            child: Icon(
+                                              Icons.image_not_supported,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          );
                                         },
                                       ),
                                     ),
@@ -117,3 +142,5 @@ class LiveStreamChatList extends StatelessWidget {
     );
   }
 }
+
+

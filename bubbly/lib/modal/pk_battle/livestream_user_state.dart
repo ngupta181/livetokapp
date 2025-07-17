@@ -6,11 +6,11 @@ class LivestreamUserState {
   bool isMuted;
   bool isVideoOn;
   LivestreamUserType type;
-  int userId;
+  String userId;
   int liveCoin;
   int currentBattleCoin;
   int totalBattleCoin;
-  List<int> followersGained;
+  List<String> followersGained;
   int joinStreamTime;
   UserData? user;
 
@@ -51,7 +51,7 @@ class LivestreamUserState {
       liveCoin: json['liveCoin'] ?? 0,
       currentBattleCoin: json['currentBattleCoin'] ?? 0,
       totalBattleCoin: json['totalBattleCoin'] ?? 0,
-      followersGained: json['followersGained'] != null ? List<int>.from(json['followersGained']) : [],
+      followersGained: json['followersGained'] != null ? List<String>.from(json['followersGained']) : [],
       joinStreamTime: json['joinStreamTime'] ?? DateTime.now().millisecondsSinceEpoch,
       user: json['user'] != null ? UserData.fromJson(json['user']) : null,
     );
@@ -84,7 +84,7 @@ class LivestreamUserState {
       liveCoin: data?['liveCoin'] ?? 0,
       currentBattleCoin: data?['currentBattleCoin'] ?? 0,
       totalBattleCoin: data?['totalBattleCoin'] ?? 0,
-      followersGained: data?['followersGained'] != null ? List<int>.from(data!['followersGained']) : [],
+      followersGained: data?['followersGained'] != null ? List<String>.from(data!['followersGained']) : [],
       joinStreamTime: data?['joinStreamTime'] ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -102,11 +102,11 @@ class LivestreamUserState {
     bool? isMuted,
     bool? isVideoOn,
     LivestreamUserType? type,
-    int? userId,
+    String? userId,
     int? liveCoin,
     int? currentBattleCoin,
     int? totalBattleCoin,
-    List<int>? followersGained,
+    List<String>? followersGained,
     int? joinStreamTime,
     UserData? user,
   }) {
@@ -140,4 +140,5 @@ class LivestreamUserState {
     currentBattleCoin = 0;
   }
 }
+
 

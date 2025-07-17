@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:bubbly/modal/pk_battle/livestream.dart';
 import 'package:bubbly/modal/pk_battle/livestream_user_state.dart';
-import 'package:bubbly/modal/pk_battle/battle_type.dart';
+import 'package:bubbly/modal/pk_battle/battle_type.dart' as BattleTypes;
 import 'package:bubbly/view/pk_battle/widgets/battle_progress_bar.dart';
 import 'package:bubbly/view/pk_battle/widgets/battle_timer.dart';
 import 'package:bubbly/view/pk_battle/widgets/battle_countdown_overlay.dart';
@@ -13,12 +13,16 @@ import 'package:bubbly/utils/pk_battle_config.dart';
 
 class BattleView extends StatefulWidget {
   final bool isAudience;
+  final bool isHost;
+  final bool isCoHost;
   final EdgeInsets? margin;
   final String roomId;
 
   const BattleView({
     Key? key,
     this.isAudience = false,
+    this.isHost = false,
+    this.isCoHost = false,
     this.margin,
     required this.roomId,
   }) : super(key: key);
@@ -48,6 +52,16 @@ class _BattleViewState extends State<BattleView> {
       final livestream = controller.livestream.value;
       final userStates = controller.userStates;
       
+      // Enhanced debug logging
+      print('BattleView: roomId = ${widget.roomId}');
+      print('BattleView: isHost = ${widget.isHost}');
+      print('BattleView: isCoHost = ${widget.isCoHost}');
+      print('BattleView: isAudience = ${widget.isAudience}');
+      print('BattleView: livestream = $livestream');
+      print('BattleView: livestream?.isBattleMode = ${livestream?.isBattleMode}');
+      print('BattleView: livestream?.battleType = ${livestream?.battleType}');
+      print('BattleView: userStates.length = ${userStates.length}');
+      
       if (livestream == null || !livestream.isBattleMode) {
         return const SizedBox.shrink();
       }
@@ -57,7 +71,7 @@ class _BattleViewState extends State<BattleView> {
         child: Stack(
           children: [
             _buildMainBattleView(livestream, userStates),
-            _buildCountdownOverlay(livestream),
+            if (livestream.battleType == BattleTypes.BattleType.waiting) _buildCountdownOverlay(livestream),
           ],
         ),
       );
@@ -76,17 +90,20 @@ class _BattleViewState extends State<BattleView> {
 
     return Column(
       children: [
+        // Battle header
         _buildBattleHeader(livestream),
-        const SizedBox(height: 16),
-        _buildParticipantsView(host, coHost),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
+        
+        // Progress bar with integrated coin counts (moved higher)
         _buildProgressBar(host, coHost),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
+        
+        // Video overlay with VS indicator only
+        _buildVideoOverlay(host, coHost),
+        const SizedBox(height: 4),
+        
+        // Battle timer below the video overlay
         _buildBattleTimer(livestream),
-        if (!widget.isAudience && livestream.isBattleRunning) ...[
-          const SizedBox(height: 16),
-          _buildGiftButtons(participants),
-        ],
       ],
     );
   }
@@ -143,7 +160,7 @@ class _BattleViewState extends State<BattleView> {
 
   Widget _buildParticipantsView(LivestreamUserState host, LivestreamUserState coHost) {
     return Obx(() {
-      final winnerData = controller.battleWinner.value;
+      final winnerData = controller.battleWinner;
       final hostIsWinner = winnerData['winnerId'] == host.userId;
       final coHostIsWinner = winnerData['winnerId'] == coHost.userId;
 
@@ -211,6 +228,125 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
+  Widget _buildCoinCounts(LivestreamUserState host, LivestreamUserState coHost) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Host coin count (left side - red)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Color(PKBattleConfig.redTeamColor),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Color(PKBattleConfig.redTeamColor).withOpacity(0.3),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.monetization_on,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                PKBattleConfig.formatCoins(host.currentBattleCoin),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Co-host coin count (right side - blue)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Color(PKBattleConfig.blueTeamColor),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Color(PKBattleConfig.blueTeamColor).withOpacity(0.3),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.monetization_on,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                PKBattleConfig.formatCoins(coHost.currentBattleCoin),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideoOverlay(LivestreamUserState host, LivestreamUserState coHost) {
+    return Container(
+      height: 300, // Reduced height since we only have VS indicator
+      child: Center(
+        // Only VS indicator in the center
+        child: Container(
+          width: 60,
+          height: 300,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                Color(PKBattleConfig.redTeamColor),
+                Color(PKBattleConfig.blueTeamColor),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text(
+              'VS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBattleTimer(Livestream livestream) {
     return Obx(() {
       return BattleTimer(
@@ -235,10 +371,6 @@ class _BattleViewState extends State<BattleView> {
   }
 
   Widget _buildCountdownOverlay(Livestream livestream) {
-    if (livestream.battleType != BattleType.waiting) {
-      return const SizedBox.shrink();
-    }
-
     return BattleCountdownOverlay(
       livestream: livestream,
       onCountdownComplete: () => controller.startBattleRunning(),
@@ -283,13 +415,13 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
-  String _getBattleStatusText(BattleType? battleType) {
+  String _getBattleStatusText(BattleTypes.BattleType? battleType) {
     switch (battleType) {
-      case BattleType.waiting:
+      case BattleTypes.BattleType.waiting:
         return 'BATTLE STARTING';
-      case BattleType.running:
+      case BattleTypes.BattleType.running:
         return 'BATTLE IN PROGRESS';
-      case BattleType.end:
+      case BattleTypes.BattleType.end:
         return 'BATTLE ENDED';
       default:
         return 'PK BATTLE';
@@ -301,8 +433,9 @@ class _BattleViewState extends State<BattleView> {
     print('User tapped: ${userState.user?.userName}');
   }
 
-  void _onGiftTap(BattleView battleView) {
-    controller.openGiftSheet(battleView);
+  void _onGiftTap(BattleTypes.BattleView battleViewType) {
+    controller.openGiftSheet(battleViewType);
   }
 }
+
 

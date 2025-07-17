@@ -58,7 +58,7 @@ class PKBattleController extends GetxController {
         }
       },
       onError: (error) {
-        print('Error listening to livestream: $error');
+        print("Error listening to livestream: $error");
       },
     );
 
@@ -69,23 +69,29 @@ class PKBattleController extends GetxController {
         _updateBattleProgress();
       },
       onError: (error) {
-        print('Error listening to user states: $error');
+        print("Error listening to user states: $error");
       },
     );
   }
 
   void _handleLivestreamUpdate(Livestream livestreamData) {
+    print('PKBattleController: Livestream updated - Type: ${livestreamData.type?.value}, BattleType: ${livestreamData.battleType?.value}');
+    battleType.value = livestreamData.battleType!;
     switch (livestreamData.battleType) {
       case BattleType.waiting:
+        print('PKBattleController: Starting countdown...');
         _startCountdown();
         break;
       case BattleType.running:
+        print('PKBattleController: Starting battle timer...');
         _startBattleTimer();
         break;
       case BattleType.ended:
+        print('PKBattleController: Battle ended');
         _handleBattleEnd();
         break;
       default:
+        print('PKBattleController: Battle type: ${livestreamData.battleType?.value}');
         break;
     }
   }
@@ -97,8 +103,6 @@ class PKBattleController extends GetxController {
 
   void _startCountdown() {
     remainingSeconds.value = PKBattleConfig.countdownDurationInSecond;
-    battleType.value = BattleType.waiting;
-    
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (remainingSeconds.value > 0) {
@@ -112,8 +116,6 @@ class PKBattleController extends GetxController {
 
   void _startBattleTimer() {
     remainingSeconds.value = PKBattleConfig.battleDurationInSecond;
-    battleType.value = BattleType.running;
-    
     _battleTimer?.cancel();
     _battleTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (remainingSeconds.value > 0) {
@@ -128,7 +130,7 @@ class PKBattleController extends GetxController {
   void _handleBattleEnd() {
     _battleTimer?.cancel();
     _countdownTimer?.cancel();
-    battleType.value = BattleType.ended;
+    // battleType.value = BattleType.ended; // This is already set by _handleLivestreamUpdate
     
     // Determine winner and show results
     _determineWinner();
@@ -179,6 +181,24 @@ class PKBattleController extends GetxController {
         throw Exception('Cannot initiate battle: prerequisites not met');
       }
 
+      // Ensure livestream document exists before initiating battle
+      final existingLivestream = await _battleService.getLivestream(roomId);
+      if (existingLivestream == null) {
+        // Create a new livestream document if it doesn't exist
+        final newLivestream = Livestream(
+          roomID: roomId,
+          title: 'PK Battle',
+          type: LivestreamType.normal,
+          battleType: BattleType.initiate,
+          watchingCount: 0,
+          hostId: roomId, // Directly assign roomId (String) to hostId
+        );
+        await _battleService.createLivestream(newLivestream);
+      }
+
+      // Ensure participant states exist
+      await _ensureParticipantStates();
+      
       // Create battle in Firebase
       await _battleService.initiateBattle(roomId);
       
@@ -213,29 +233,32 @@ class PKBattleController extends GetxController {
     return true;
   }
 
-  void _ensureParticipantStates() {
-    // Clear existing states
-    userStates.clear();
-    
-    // Add host as participant
-    final hostState = LivestreamUserState(
-      userId: 1, // Default host ID
-      type: LivestreamUserType.host,
-      currentBattleCoin: 0,
-      totalBattleCoin: 0,
-    );
-    userStates.add(hostState);
-    
-    // Add co-host as participant
-    final coHostState = LivestreamUserState(
-      userId: 2, // Default co-host ID
-      type: LivestreamUserType.co_host,
-      currentBattleCoin: 0,
-      totalBattleCoin: 0,
-    );
-    userStates.add(coHostState);
-    
-    print('Participants ensured: ${userStates.length} participants');
+  Future<void> _ensureParticipantStates() async {
+    try {
+      // Create host state
+      final hostState = LivestreamUserState(
+        userId: roomId, // Host ID is the roomId
+        type: LivestreamUserType.host,
+        currentBattleCoin: 0,
+        totalBattleCoin: 0,
+      );
+      
+      // Create co-host state (using a placeholder for now)
+      final coHostState = LivestreamUserState(
+        userId: 'cohost_$roomId', // Co-host ID
+        type: LivestreamUserType.co_host,
+        currentBattleCoin: 0,
+        totalBattleCoin: 0,
+      );
+      
+      // Set user states in Firebase
+      await _battleService.setUserState(roomId, hostState);
+      await _battleService.setUserState(roomId, coHostState);
+      
+      print('Participants ensured: Host and Co-host states created');
+    } catch (e) {
+      print('Error ensuring participant states: $e');
+    }
   }
 
   Future<void> startBattleRunning() async {
@@ -295,9 +318,9 @@ class PKBattleController extends GetxController {
     }
   }
 
-  void openGiftSheet() {
+  void openGiftSheet(BattleView battleViewType) {
     // Placeholder for gift sheet functionality
-    print('Opening gift sheet for battle');
+    print('Opening gift sheet for battle: ${battleViewType.value}');
   }
 
   // Get battle type as observable
@@ -312,4 +335,5 @@ class PKBattleController extends GetxController {
   // Get battle winner as observable
   RxMap<String, dynamic> get battleWinnerObs => battleWinner;
 }
+
 

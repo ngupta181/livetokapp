@@ -123,9 +123,11 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
         _updatePlaybackSync();
       });
       
-      setState(() {
-        isVideoReady = true;
-      });
+      if (!_isDisposed) {
+        setState(() {
+          isVideoReady = true;
+        });
+      }
       
       _controller.setLooping(true);
       await _controller.setVolume(videoVolume);
@@ -215,7 +217,9 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
       } else {
         await _resumePlayback();
       }
-      setState(() {});
+      if (!_isDisposed) {
+        setState(() {});
+      }
     } catch (e) {
       print("Error toggling play/pause: $e");
     }
@@ -237,7 +241,7 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
           return MusicScreen((data, localMusic) async {
             try {
               if (data != null && localMusic != null) {
-                setState(() {
+if (!_isDisposed) setState(() {
                   isMusicReady = false;
                   _hasAudioFocus = false;
                 });
@@ -250,9 +254,11 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
                 await _audioPlayer?.setSourceUrl(localMusic);
                 await _audioPlayer?.setVolume(musicVolume);
                 
-                setState(() {
-                  isMusicReady = true;
-                });
+                if (!_isDisposed) {
+                  setState(() {
+                    isMusicReady = true;
+                  });
+                }
                 
                 await _resumePlayback();
               }
@@ -506,10 +512,12 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
                           Slider(
                             value: videoVolume,
                             onChanged: isMuted ? null : (value) {
-                              setState(() {
-                                videoVolume = value;
-                                _controller.setVolume(value);
-                              });
+                              if (!_isDisposed) {
+                                setState(() {
+                                  videoVolume = value;
+                                  _controller.setVolume(value);
+                                });
+                              }
                             },
                           ),
                         ],
@@ -528,10 +536,12 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
                           Slider(
                             value: musicVolume,
                             onChanged: (value) {
-                              setState(() {
-                                musicVolume = value;
-                                _audioPlayer?.setVolume(value);
-                              });
+                              if (!_isDisposed) {
+                                setState(() {
+                                  musicVolume = value;
+                                  _audioPlayer?.setVolume(value);
+                                });
+                              }
                             },
                           ),
                         ],
@@ -636,7 +646,9 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
   void prefData() async {
     await sessionManager.initPref();
     settingData = sessionManager.getSetting()?.data;
-    setState(() {});
+    if (!_isDisposed) {
+      setState(() {});
+    }
   }
 
   void getVideoModerationChecker(String processedVideoPath) async {
@@ -711,17 +723,21 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
   }
 
   void _handleMuteToggle() {
-    setState(() {
-      isMuted = !isMuted;
-      // Only mute/unmute video, keep music volume unchanged
-      _controller.setVolume(isMuted ? 0 : videoVolume);
-    });
+    if (!_isDisposed) {
+      setState(() {
+        isMuted = !isMuted;
+        // Only mute/unmute video, keep music volume unchanged
+        _controller.setVolume(isMuted ? 0 : videoVolume);
+      });
+    }
   }
 
   Future<String> _processVideo() async {
-    setState(() {
-      isProcessing = true;
-    });
+if (!_isDisposed) {
+      setState(() {
+        isProcessing = true;
+      });
+    }
 
     try {
       final directory = await getApplicationDocumentsDirectory();
@@ -749,15 +765,19 @@ class _PreviewScreenState extends State<PreviewScreen> with WidgetsBindingObserv
 
       await FFmpegKit.execute(ffmpegCommand);
       
-      setState(() {
-        isProcessing = false;
-      });
+if (!_isDisposed) {
+        setState(() {
+          isProcessing = false;
+        });
+      }
       
       return outputPath;
     } catch (e) {
+if (!_isDisposed) {
       setState(() {
         isProcessing = false;
       });
+    }
       throw e;
     }
   }

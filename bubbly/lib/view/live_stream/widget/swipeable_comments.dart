@@ -110,50 +110,51 @@ class _SwipeableCommentsState extends State<SwipeableComments>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Stack(
-                children: [
-                  GestureDetector(
-                    onHorizontalDragEnd: (DragEndDetails details) {
-                      if (details.primaryVelocity! > 0) {
-                        // Swiped right to left (hide)
-                        _toggleVisibility();
-                      }
-                    },
-                    child: LiveStreamChatList(
-                      commentList: widget.commentList,
-                      pageContext: widget.pageContext,
-                    ),
-                  ),
-                  // Swipe hint indicator
-                  if (_showSwipeHint)
-                    Positioned(
-                      right: 10,
-                      top: 50,
-                      child: Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.swipe_left,
-                                color: Colors.white, size: 18),
-                            SizedBox(width: 5),
-                            Text(
-                              'Swipe to hide',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontFamily: FontRes.fNSfUiMedium,
-                              ),
-                            ),
-                          ],
-                        ),
+              Flexible(
+                child: Stack(
+                  children: [
+                    GestureDetector(
+                      onHorizontalDragEnd: (DragEndDetails details) {
+                        if (details.primaryVelocity! > 0) {
+                          // Swiped right to left (hide)
+                          _toggleVisibility();
+                        }
+                      },
+                      child: LiveStreamChatList(
+                        commentList: widget.commentList,
+                        pageContext: widget.pageContext,
                       ),
                     ),
-                ],
+                    // Swipe hint indicator
+                    if (_showSwipeHint)
+                      Positioned(
+                        right: 10,
+                        top: 50,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.swipe_left, color: Colors.white, size: 18),
+                              SizedBox(width: 5),
+                              Text(
+                                'Swipe to hide',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontFamily: FontRes.fNSfUiMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               LiveStreamBottomField(model: widget.model),
             ],

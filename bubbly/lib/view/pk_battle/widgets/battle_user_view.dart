@@ -83,9 +83,9 @@ class BattleUserView extends StatelessWidget {
             ],
           ),
           child: ClipOval(
-            child: user?.image != null
+            child: user?.userProfile != null
                 ? CachedNetworkImage(
-                    imageUrl: user!.image!,
+                    imageUrl: user!.userProfile!,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => const ImagePlaceHolder(),
                     errorWidget: (context, url, error) => const ImagePlaceHolder(),
@@ -168,7 +168,7 @@ class BattleUserView extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        if (user?.isVerified == true)
+        if (user?.isVerify == 1)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

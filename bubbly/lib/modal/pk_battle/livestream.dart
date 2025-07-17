@@ -11,8 +11,8 @@ class Livestream {
   int? battleCreatedAt;
   int? battleStartedAt;
   String? roomID;
-  int? hostId;
-  List<int>? coHostIds;
+  String? hostId;
+  List<String>? coHostIds;
   String? title;
   String? description;
   bool? isActive;
@@ -65,7 +65,7 @@ class Livestream {
       battleStartedAt: json['battleStartedAt'],
       roomID: json['roomID'],
       hostId: json['hostId'],
-      coHostIds: json['coHostIds'] != null ? List<int>.from(json['coHostIds']) : null,
+      coHostIds: json['coHostIds'] != null ? List<String>.from(json['coHostIds']) : null,
       title: json['title'],
       description: json['description'],
       isActive: json['isActive'] ?? true,
@@ -107,7 +107,7 @@ class Livestream {
       battleStartedAt: data?['battleStartedAt'],
       roomID: data?['roomID'],
       hostId: data?['hostId'],
-      coHostIds: data?['coHostIds'] != null ? List<int>.from(data!['coHostIds']) : null,
+      coHostIds: data?['coHostIds'] != null ? List<String>.from(data!['coHostIds']) : null,
       title: data?['title'],
       description: data?['description'],
       isActive: data?['isActive'] ?? true,
@@ -118,9 +118,9 @@ class Livestream {
 
   // Helper methods
   List<UserData> getAllUsers(List<UserData> users) {
-    List<int> allUserIds = [];
+    List<String> allUserIds = [];
     if (hostId != null) allUserIds.add(hostId!);
-    if (coHostIds != null) allUserIds.addAll(coHostIds!);
+    if (coHostIds != null) allUserIds.addAll(coHostIds!); 
     
     return users.where((user) => allUserIds.contains(user.userId)).toList();
   }
@@ -139,10 +139,11 @@ class Livestream {
     return users.where((user) => coHostIds!.contains(user.userId)).toList();
   }
 
-  bool get isBattleMode => type == LivestreamType.battle;
+  bool get isBattleMode => type == LivestreamType.battle || type == LivestreamType.pk_battle;
   bool get isBattleActive => battleType == BattleType.running || battleType == BattleType.waiting;
   bool get isBattleWaiting => battleType == BattleType.waiting;
   bool get isBattleRunning => battleType == BattleType.running;
   bool get isBattleEnded => battleType == BattleType.end;
 }
+
 

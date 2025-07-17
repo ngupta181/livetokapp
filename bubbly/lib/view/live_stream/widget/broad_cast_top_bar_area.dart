@@ -31,6 +31,7 @@ class BroadCastTopBarArea extends StatelessWidget {
             margin: EdgeInsets.symmetric(horizontal: 10),
             padding: EdgeInsets.only(top: 10, bottom: 2),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start, // Align items to the start vertically
               children: [
                 BlurTab(
                   child: Container(
@@ -116,9 +117,6 @@ class BroadCastTopBarArea extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(
-            height: 5,
-          ),
           // PK Battle Controls (only for host)
           if (model.isHost) ...[
             PKBattleControls(
@@ -185,4 +183,5 @@ class BroadCastTopBarArea extends StatelessWidget {
     );
   }
 }
+
 

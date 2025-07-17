@@ -35,52 +35,58 @@ class PKBattleControls extends StatelessWidget {
     return GetBuilder<PKBattleController>(
       init: PKBattleController(channelName),
       builder: (controller) {
+        // Debug information
+        print('PKBattleControls: coHostID = ${model.coHostID}');
+        print('PKBattleControls: battleType = ${controller.battleType}');
+        print('PKBattleControls: isCoHost = ${model.isCoHost}');
+        
         return Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Check if co-host is present using model._coHostID
-              if (model.coHostID == null) ...[
-                _buildControlButton(
-                  icon: Icons.person_add,
-                  label: 'Invite Co-host',
-                  onTap: () => _showCoHostInvitationSheet(context),
-                  color: ColorRes.colorTheme,
-                ),
-              ] else ...[
-                // PK Battle button (only show when co-host is present)
-                if (controller.battleType == BattleType.initiate) ...[
+                  // Always show invite co-host button
                   _buildControlButton(
-                    icon: Icons.sports_mma,
-                    label: 'Start PK Battle',
-                    onTap: () => _startPKBattle(controller),
-                    color: Colors.red,
+                    icon: Icons.person_add,
+                    label: 'Invite Co-host',
+                    onTap: () => _showCoHostInvitationSheet(context),
+                    color: ColorRes.colorTheme,
                   ),
-                ] else if (controller.battleType == BattleType.waiting) ...[
-                  _buildControlButton(
-                    icon: Icons.timer,
-                    label: 'Battle Starting...',
-                    onTap: null,
-                    color: Colors.orange,
-                  ),
-                ] else if (controller.battleType == BattleType.running) ...[
-                  _buildControlButton(
-                    icon: Icons.stop,
-                    label: 'End Battle',
-                    onTap: () => _endPKBattle(controller),
-                    color: Colors.red,
-                  ),
-                ],
-                
-                // Remove co-host button
-                _buildControlButton(
-                  icon: Icons.person_remove,
-                  label: 'Remove Co-host',
-                  onTap: () => _removeCoHost(context),
-                  color: Colors.grey,
-                ),
-              ],
+                  
+                  // Always show PK Battle button for host - simplified logic
+                  if (controller.battleType == BattleType.waiting) ...[
+                    _buildControlButton(
+                      icon: Icons.timer,
+                      label: 'Battle Starting...',
+                      onTap: null,
+                      color: Colors.orange,
+                    ),
+                  ] else if (controller.battleType == BattleType.running) ...[
+                    _buildControlButton(
+                      icon: Icons.stop,
+                      label: 'End Battle',
+                      onTap: () => _endPKBattle(controller),
+                      color: Colors.red,
+                    ),
+                  ] else ...[
+                    // Default: Always show Start PK Battle button when not in waiting/running state
+                    _buildControlButton(
+                      icon: Icons.sports_mma,
+                      label: 'Start PK Battle',
+                      onTap: () => _startPKBattle(controller),
+                      color: Colors.red,
+                    ),
+                  ],
+                  
+                  // Show remove co-host button only when co-host is present
+                  if (model.coHostID != null) ...[
+                    _buildControlButton(
+                      icon: Icons.person_remove,
+                      label: 'Remove Co-host',
+                      onTap: () => _removeCoHost(context),
+                      color: Colors.grey,
+                    ),
+                  ],
             ],
           ),
         );

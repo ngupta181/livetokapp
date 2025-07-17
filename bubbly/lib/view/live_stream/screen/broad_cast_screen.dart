@@ -5,6 +5,7 @@ import 'package:bubbly/view/live_stream/widget/swipeable_comments.dart';
 import 'package:bubbly/view/live_stream/widget/gift_queue_display.dart';
 import 'package:bubbly/view/live_stream/widget/level_up_animation.dart';
 import 'package:bubbly/view/live_stream/widget/level_up_animation_controller.dart';
+import 'package:bubbly/view/pk_battle/screens/battle_view.dart';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
@@ -56,6 +57,7 @@ class _BroadCastScreenState extends State<BroadCastScreen> {
             model.onEndButtonClick();
           },
           child: Scaffold(
+            backgroundColor: Colors.black, // Black background instead of white
             body: Stack(
               children: [
                 // Base layer - video panel
@@ -88,6 +90,26 @@ class _BroadCastScreenState extends State<BroadCastScreen> {
                   isGiftSheetMinimized: model.isGiftSheetMinimized,
                 ),
                 
+                // PK Battle View - shows battle UI when battle is active
+                if (model.channelName != null)
+                  Positioned(
+                    top: 220, // Moved higher up to position coins and progress bar closer to controls
+                    left: 16,
+                    right: 16,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.transparent, // Made transparent
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: BattleView(
+                        roomId: model.channelName!,
+                        isAudience: false, // Not audience
+                        isHost: model.isHost, // Pass host status
+                        isCoHost: model.isCoHost, // Pass co-host status
+                      ),
+                    ),
+                  ),
+
                 // Level up animation display
                 AnimatedBuilder(
                   animation: _levelUpController,

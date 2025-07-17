@@ -44,7 +44,9 @@ class _LivestreamEndScreenState extends State<LivestreamEndScreen>
     watching = pref.getString(KeyRes.liveStreamWatchingUser) ?? '';
     diamond = pref.getString(KeyRes.liveStreamCollected) ?? '';
     image = pref.getString(KeyRes.liveStreamProfile) ?? '';
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override

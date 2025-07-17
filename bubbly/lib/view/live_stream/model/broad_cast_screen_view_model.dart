@@ -26,6 +26,7 @@ import 'package:bubbly/view/wallet/dialog_coins_plan.dart';
 import 'package:bubbly/services/co_host_invitation_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:stacked/stacked.dart';
@@ -33,6 +34,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 class BroadCastScreenViewModel extends BaseViewModel {
   SettingData? settingData;
+  bool _isDisposed = false;
 
   void init(
       {required bool isBroadCast,
@@ -65,6 +67,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
   int _localUserID = 0; //  local user uid
   int? _remoteID; //  remote user uid
   int? _coHostID; //  co-host user uid
+  Set<int> _coHostUIDs = {}; // Track all co-host UIDs
   bool _isJoined = false; // Indicates if the local user has joined the channel
   bool isHost =
       true; // Indicates whether the user has joined as a host or audience
@@ -111,7 +114,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
         if (isHost) {
           db
               .collection(FirebaseRes.liveStreamUser)
-              .doc(registrationUser?.data?.identity)
+              .doc(_channelName)
               .set(LiveStreamUser(
                 fullName: registrationUser?.data?.fullName ?? '',
                 isVerified:
@@ -134,17 +137,60 @@ class BroadCastScreenViewModel extends BaseViewModel {
       onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
         print('User joined: $remoteUid, isHost: $isHost, isCoHost: $isCoHost');
         
-        if (isHost) {
-          // Host sees co-host joining
-          _coHostID = remoteUid;
-        } else if (isCoHost) {
-          // Co-host sees host
-          _remoteID = remoteUid;
-        } else {
-          // Regular audience sees host
-          _remoteID = remoteUid;
-        }
-        notifyListeners();
+        // Prevent operations on disposed widget
+        if (_isDisposed) return;
+        
+        // Use post frame callback to ensure safe UI updates
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_isDisposed) return;
+          
+          try {
+            if (isHost) {
+              // For host: Set co-host ID for any broadcaster joining (simplified approach)
+              // We'll assume that if someone joins as a broadcaster, they're a co-host
+              // This is a temporary solution until we have better co-host tracking
+              if (_coHostID == null) {
+                _coHostID = remoteUid;
+                print('Co-host detected with ID: $remoteUid');
+                
+                // Temporarily disabled automatic join message for co-host to prevent crashes
+                // TODO: Re-implement with better error handling
+                // _sendAutomaticJoinMessage('Co-host has joined the stream', isCoHost: true);
+              }
+              
+              // Update watching count (with delay)
+              Future.delayed(Duration(milliseconds: 500), () {
+                if (!_isDisposed) {
+                  _updateWatchingCount(1);
+                }
+              });
+            } else if (isCoHost) {
+              // Co-host sees host
+              _remoteID = remoteUid;
+            } else {
+              // Regular audience sees host
+              _remoteID = remoteUid;
+              
+              // Temporarily disabled automatic join message for viewers to prevent crashes
+              // TODO: Re-implement with better error handling
+              // _sendAutomaticJoinMessage('${user?.data?.userName ?? 'Viewer'} joined the stream');
+              
+              // Update watching count (with delay)
+              Future.delayed(Duration(milliseconds: 500), () {
+                if (!_isDisposed) {
+                  _updateWatchingCount(1);
+                }
+              });
+            }
+            
+            // Safe UI update
+            if (!_isDisposed) {
+              notifyListeners();
+            }
+          } catch (e) {
+            print('Error in onUserJoined post frame callback: $e');
+          }
+        });
       },
        onUserOffline: (RtcConnection connection, int remoteUid,
           UserOfflineReasonType reason) {
@@ -201,12 +247,12 @@ class BroadCastScreenViewModel extends BaseViewModel {
   }
 
   Widget _buildSplitScreenView() {
-    return Column(
+    return Row(
       children: [
-        // Top half - Host video
+        // Left half - Host video
         Expanded(
           child: Container(
-            width: double.infinity,
+            height: 300, // Fixed height of 300 pixels
             child: Stack(
               children: [
                 // Host video (local for host, remote for co-host)
@@ -253,16 +299,16 @@ class BroadCastScreenViewModel extends BaseViewModel {
           ),
         ),
         
-        // Divider
+        // Vertical divider (transparent)
         Container(
-          height: 2,
-          color: Colors.white,
+          width: 2,
+          color: Colors.transparent,
         ),
         
-        // Bottom half - Co-host video
+        // Right half - Co-host video
         Expanded(
           child: Container(
-            width: double.infinity,
+            height: 300, // Fixed height of 300 pixels
             child: Stack(
               children: [
                 // Co-host video (remote for host, local for co-host)
@@ -430,6 +476,19 @@ class BroadCastScreenViewModel extends BaseViewModel {
         .snapshots()
         .listen((event) {
       liveStreamUser = event.data();
+      
+      // Check if livestream document was deleted (host ended the stream)
+      if (!isHost && !event.exists && !_isDisposed) {
+        print('Host ended the live stream - automatically closing viewer stream');
+        // Use post frame callback to ensure safe UI operations
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_isDisposed) {
+            _handleHostEndedStream();
+          }
+        });
+        return;
+      }
+      
       if (isHost) {
         minimumUserLiveTimer ??=
             Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -490,21 +549,69 @@ class BroadCastScreenViewModel extends BaseViewModel {
         ? msg ?? '' 
         : selectedGift?.image ?? '';
     
-    db
-        .collection(FirebaseRes.liveStreamUser)
-        .doc(_channelName)
-        .collection(FirebaseRes.comment)
-        .add(LiveStreamComment(
-          id: DateTime.now().millisecondsSinceEpoch,
-          userName: user?.data?.userName ?? '',
-          userImage: user?.data?.userProfile ?? '',
+    try {
+      print('Sending comment to channel: $_channelName');
+      print('Comment type: $commentType');
+      print('Comment content: $commentContent');
+      print('User data: ${user?.data?.userName}');
+      
+      // Ensure the parent document exists before adding comment
+      if (isHost) {
+        // For host, make sure the livestream document exists
+        await db.collection(FirebaseRes.liveStreamUser).doc(_channelName).get().then((doc) {
+          if (!doc.exists) {
+            print('Warning: Livestream document does not exist, creating it...');
+            // Create the document if it doesn't exist
+            return db.collection(FirebaseRes.liveStreamUser).doc(_channelName).set(
+              LiveStreamUser(
+                fullName: registrationUser?.data?.fullName ?? '',
+                isVerified: registrationUser?.data?.isVerify == 1 ? true : false,
+                agoraToken: _agoraToken,
+                collectedDiamond: 0,
+                hostIdentity: registrationUser?.data?.identity ?? '',
+                id: DateTime.now().millisecondsSinceEpoch,
+                joinedUser: [],
+                userId: registrationUser?.data?.userId ?? -1,
+                userImage: registrationUser?.data?.userProfile ?? '',
+                userName: registrationUser?.data?.userName ?? '',
+                watchingCount: 0,
+                followers: registrationUser?.data?.followersCount,
+                userLevel: registrationUser?.data?.userLevel ?? 1,
+              ).toJson(),
+            );
+          }
+        });
+      }
+      
+      await db
+          .collection(FirebaseRes.liveStreamUser)
+          .doc(_channelName)
+          .collection(FirebaseRes.comment)
+          .add(LiveStreamComment(
+            id: DateTime.now().millisecondsSinceEpoch,
+            userName: user?.data?.userName ?? '',
+            userImage: user?.data?.userProfile ?? '',
           userId: user?.data?.userId ?? -1,
-          fullName: user?.data?.fullName ?? '',
-          comment: commentContent,
-          commentType: commentType,
-          isVerify: user?.data?.isVerify == 1 ? true : false,
-          userLevel: user?.data?.userLevel ?? 1,
-        ).toJson());
+            fullName: user?.data?.fullName ?? '',
+            comment: commentContent,
+            commentType: commentType,
+            isVerify: user?.data?.isVerify == 1 ? true : false,
+            userLevel: user?.data?.userLevel ?? 1,
+          ).toJson());
+      
+      print('Comment sent successfully');
+    } catch (e) {
+      print('Error sending comment: $e');
+      // Show error to user
+      Get.snackbar(
+        'Error',
+        'Failed to send message. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+      return;
+    }
 
     // If it's a gift, trigger animation immediately as well
     if (commentType == FirebaseRes.image) {
@@ -864,14 +971,190 @@ class BroadCastScreenViewModel extends BaseViewModel {
     }
   }
 
+  // Method to add a user to co-host tracking (called when inviting someone)
+  void addCoHostUID(int uid) {
+    _coHostUIDs.add(uid);
+    print('Added co-host UID: $uid to tracking set');
+    notifyListeners();
+  }
+
+  // Method to remove a user from co-host tracking
+  void removeCoHostUID(int uid) {
+    _coHostUIDs.remove(uid);
+    print('Removed co-host UID: $uid from tracking set');
+    notifyListeners();
+  }
+
+  // Method to manually set co-host ID (for debugging/testing)
+  void setCoHostID(int? uid) {
+    _coHostID = uid;
+    print('Manually set co-host ID to: $uid');
+    notifyListeners();
+  }
+
+  // Method to check if we have a co-host
+  bool get hasCoHost => _coHostID != null;
+
+  // Temporary method to force co-host detection (for debugging)
+  void forceCoHostDetection() {
+    if (_coHostID == null && _remoteID != null) {
+      _coHostID = _remoteID;
+      print('Forced co-host detection: set coHostID to $_coHostID');
+      notifyListeners();
+    }
+  }
+
+  // Method to send automatic join messages
+  Future<void> _sendAutomaticJoinMessage(String message, {bool isCoHost = false}) async {
+    // Prevent operations on disposed widget
+    if (_isDisposed) return;
+    
+    try {
+      // Add a longer delay to prevent UI conflicts
+      await Future.delayed(Duration(milliseconds: 1500));
+      
+      // Double check if widget is still active
+      if (_isDisposed) return;
+      
+      // Ensure the livestream document exists before adding comment
+      final docSnapshot = await db.collection(FirebaseRes.liveStreamUser).doc(_channelName).get();
+      if (!docSnapshot.exists || _isDisposed) {
+        print('Livestream document does not exist or widget disposed, skipping join message');
+        return;
+      }
+      
+      // Use a try-catch for the Firebase operation
+      try {
+        await db
+            .collection(FirebaseRes.liveStreamUser)
+            .doc(_channelName)
+            .collection(FirebaseRes.comment)
+            .add(LiveStreamComment(
+              id: DateTime.now().millisecondsSinceEpoch,
+              userName: 'System',
+              userImage: '',
+              userId: -1,
+              fullName: 'System',
+              comment: message,
+              commentType: FirebaseRes.msg, // Use msg type for system messages
+              isVerify: false,
+              userLevel: 1,
+            ).toJson());
+        
+        print('Automatic join message sent: $message');
+      } catch (firebaseError) {
+        print('Firebase error in join message: $firebaseError');
+        // Silently fail to prevent crashes
+      }
+    } catch (e) {
+      print('Error sending automatic join message: $e');
+      // Don't rethrow to prevent crashes
+    }
+  }
+
+  // Method to update watching count
+  Future<void> _updateWatchingCount(int increment) async {
+    try {
+      await db.collection(FirebaseRes.liveStreamUser).doc(_channelName).update({
+        FirebaseRes.watchingCount: FieldValue.increment(increment),
+      });
+      print('Watching count updated by: $increment');
+    } catch (e) {
+      print('Error updating watching count: $e');
+    }
+  }
+
+  // Method to handle when host ends the stream (for viewers)
+  void _handleHostEndedStream() {
+    if (_isDisposed) return; // Prevent operations on disposed widget
+    
+    print('Host ended stream - starting viewer cleanup process');
+    
+    try {
+      // Immediately stop all timers and streams
+      timer?.cancel();
+      minimumUserLiveTimer?.cancel();
+      commentStream?.cancel();
+      invitationStream?.cancel();
+      
+      // Leave Agora channel immediately
+      agoraEngine.leaveChannel().catchError((error) {
+        print('Error leaving Agora channel: $error');
+      });
+      
+      // Show notification to user
+      Get.snackbar(
+        'Live Stream Ended',
+        'The host has ended the live stream.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+      
+      // Navigate back with a small delay to ensure cleanup
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (!_isDisposed) {
+          try {
+            // Force close the current screen
+            if (Get.isRegistered<BroadCastScreenViewModel>()) {
+              Get.back();
+            } else {
+              // Fallback navigation
+              Navigator.of(Get.context!).pop();
+            }
+            print('Viewer successfully navigated back after host ended stream');
+          } catch (navError) {
+            print('Navigation error: $navError');
+            // Last resort - try system back
+            SystemNavigator.pop();
+          }
+        }
+      });
+      
+    } catch (e) {
+      print('Error in _handleHostEndedStream: $e');
+      // Emergency fallback - force close
+      try {
+        Get.back();
+      } catch (backError) {
+        print('Emergency back failed: $backError');
+        SystemNavigator.pop();
+      }
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
-    commentController.dispose();
-    commentStream?.cancel();
-    invitationStream?.cancel(); // Clean up invitation stream
-    agoraEngine.unregisterEventHandler(engineEventHandler!);
+    _isDisposed = true;
+    
+    // Cancel all timers first
     timer?.cancel();
     minimumUserLiveTimer?.cancel();
+    
+    // Cancel all streams
+    commentStream?.cancel();
+    invitationStream?.cancel();
+    
+    // Clean up controllers
+    commentController.dispose();
+    commentFocus.dispose();
+    
+    // Clean up Agora engine
+    try {
+      if (engineEventHandler != null) {
+        agoraEngine.unregisterEventHandler(engineEventHandler!);
+      }
+    } catch (e) {
+      print('Error unregistering event handler: $e');
+    }
+    
     super.dispose();
   }
 }

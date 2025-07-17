@@ -17,22 +17,22 @@ class PKBattleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Collection references
-  CollectionReference get _liveStreamsCollection => 
-      _firestore.collection(PKBattleConfig.liveStreamsCollection);
+  CollectionReference get _liveStreamUserCollection => 
+      _firestore.collection('liveStreamUser');
 
-  DocumentReference _getLiveStreamDoc(String roomId) => 
-      _liveStreamsCollection.doc(roomId);
+  DocumentReference _getLiveStreamUserDoc(String userId) => 
+      _liveStreamUserCollection.doc(userId);
 
-  CollectionReference _getUserStateCollection(String roomId) => 
-      _getLiveStreamDoc(roomId).collection(PKBattleConfig.userStateSubCollection);
+  CollectionReference _getPkBattleCollection(String userId) => 
+      _getLiveStreamUserDoc(userId).collection('Pk_battle');
 
-  CollectionReference _getCommentsCollection(String roomId) => 
-      _getLiveStreamDoc(roomId).collection(PKBattleConfig.commentsSubCollection);
+  DocumentReference _getPkBattleDoc(String userId) => 
+      _getPkBattleCollection(userId).doc('battle_data'); // Assuming a single battle document per user
 
-  // Livestream Operations
+  // Livestream Operations (now under Pk_battle sub-collection)
   Future<void> createLivestream(Livestream livestream) async {
     try {
-      await _getLiveStreamDoc(livestream.roomID!).set(livestream.toFireStore());
+      await _getPkBattleDoc(livestream.hostId ?? '').set(livestream.toFireStore());
       log('Livestream created: ${livestream.roomID}');
     } catch (e) {
       log('Error creating livestream: $e');
@@ -40,19 +40,19 @@ class PKBattleService {
     }
   }
 
-  Future<void> updateLivestream(String roomId, Map<String, dynamic> updates) async {
+  Future<void> updateLivestream(String userId, Map<String, dynamic> updates) async {
     try {
-      await _getLiveStreamDoc(roomId).update(updates);
-      log('Livestream updated: $roomId');
+      await _getPkBattleDoc(userId).update(updates);
+      log('Livestream updated for user: $userId');
     } catch (e) {
       log('Error updating livestream: $e');
       rethrow;
     }
   }
 
-  Future<Livestream?> getLivestream(String roomId) async {
+  Future<Livestream?> getLivestream(String userId) async {
     try {
-      final doc = await _getLiveStreamDoc(roomId).get();
+      final doc = await _getPkBattleDoc(userId).get();
       if (doc.exists) {
         return Livestream.fromFireStore(doc as DocumentSnapshot<Map<String, dynamic>>, null);
       }
@@ -63,8 +63,8 @@ class PKBattleService {
     }
   }
 
-  Stream<Livestream?> watchLivestream(String roomId) {
-    return _getLiveStreamDoc(roomId)
+  Stream<Livestream?> watchLivestream(String userId) {
+    return _getPkBattleDoc(userId)
         .withConverter<Livestream>(
           fromFirestore: (snapshot, _) => Livestream.fromFireStore(snapshot, null),
           toFirestore: (livestream, _) => livestream.toFireStore(),
@@ -73,32 +73,33 @@ class PKBattleService {
         .map((snapshot) => snapshot.data());
   }
 
-  // User State Operations
-  Future<void> updateUserState(String roomId, int userId, Map<String, dynamic> updates) async {
+  // User State Operations (now under user document)
+  Future<void> updateUserState(String userId, String userStateId, Map<String, dynamic> updates) async {
     try {
-      await _getUserStateCollection(roomId).doc(userId.toString()).update(updates);
-      log('User state updated: $roomId/$userId');
+      await _getLiveStreamUserDoc(userId).collection(PKBattleConfig.userStateSubCollection).doc(userStateId).update(updates);
+      log('User state updated: $userId/$userStateId');
     } catch (e) {
       log('Error updating user state: $e');
       rethrow;
     }
   }
 
-  Future<void> setUserState(String roomId, LivestreamUserState userState) async {
+  Future<void> setUserState(String userId, LivestreamUserState userState) async {
     try {
-      await _getUserStateCollection(roomId)
-          .doc(userState.userId.toString())
+      await _getLiveStreamUserDoc(userId)
+          .collection(PKBattleConfig.userStateSubCollection)
+          .doc(userState.userId)
           .set(userState.toFireStore());
-      log('User state set: $roomId/${userState.userId}');
+      log('User state set: $userId/${userState.userId}');
     } catch (e) {
       log('Error setting user state: $e');
       rethrow;
     }
   }
 
-  Future<LivestreamUserState?> getUserState(String roomId, int userId) async {
+  Future<LivestreamUserState?> getUserState(String userId, String userStateId) async {
     try {
-      final doc = await _getUserStateCollection(roomId).doc(userId.toString()).get();
+      final doc = await _getLiveStreamUserDoc(userId).collection(PKBattleConfig.userStateSubCollection).doc(userStateId).get();
       if (doc.exists) {
         return LivestreamUserState.fromFireStore(doc as DocumentSnapshot<Map<String, dynamic>>, null);
       }
@@ -109,8 +110,9 @@ class PKBattleService {
     }
   }
 
-  Stream<List<LivestreamUserState>> watchUserStates(String roomId) {
-    return _getUserStateCollection(roomId)
+  Stream<List<LivestreamUserState>> watchUserStates(String userId) {
+    return _getLiveStreamUserDoc(userId)
+        .collection(PKBattleConfig.userStateSubCollection)
         .withConverter<LivestreamUserState>(
           fromFirestore: (snapshot, _) => LivestreamUserState.fromFireStore(snapshot, null),
           toFirestore: (userState, _) => userState.toFireStore(),
@@ -119,19 +121,20 @@ class PKBattleService {
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
-  // Comment Operations
-  Future<void> addComment(String roomId, LivestreamComment comment) async {
+  // Comment Operations (now under user document)
+  Future<void> addComment(String userId, LivestreamComment comment) async {
     try {
-      await _getCommentsCollection(roomId).add(comment.toFireStore());
-      log('Comment added: $roomId');
+      await _getLiveStreamUserDoc(userId).collection(PKBattleConfig.commentsSubCollection).add(comment.toFireStore());
+      log('Comment added: $userId');
     } catch (e) {
       log('Error adding comment: $e');
       rethrow;
     }
   }
 
-  Stream<List<LivestreamComment>> watchComments(String roomId, {int limit = 50}) {
-    return _getCommentsCollection(roomId)
+  Stream<List<LivestreamComment>> watchComments(String userId, {int limit = 50}) {
+    return _getLiveStreamUserDoc(userId)
+        .collection(PKBattleConfig.commentsSubCollection)
         .withConverter<LivestreamComment>(
           fromFirestore: (snapshot, _) => LivestreamComment.fromFireStore(snapshot, null),
           toFirestore: (comment, _) => comment.toFireStore(),
@@ -142,8 +145,8 @@ class PKBattleService {
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
-  Stream<Livestream?> getLivestreamStream(String roomId) {
-    return _getLiveStreamDoc(roomId)
+  Stream<Livestream?> getLivestreamStream(String userId) {
+    return _getPkBattleDoc(userId)
         .withConverter<Livestream>(
           fromFirestore: (snapshot, _) => Livestream.fromFireStore(snapshot, null),
           toFirestore: (livestream, _) => livestream.toFireStore(),
@@ -152,8 +155,9 @@ class PKBattleService {
         .map((snapshot) => snapshot.data());
   }
 
-  Stream<List<LivestreamUserState>> getUserStatesStream(String roomId) {
-    return _getUserStateCollection(roomId)
+  Stream<List<LivestreamUserState>> getUserStatesStream(String userId) {
+    return _getLiveStreamUserDoc(userId)
+        .collection(PKBattleConfig.userStateSubCollection)
         .withConverter<LivestreamUserState>(
           fromFirestore: (snapshot, _) => LivestreamUserState.fromFireStore(snapshot, null),
           toFirestore: (userState, _) => userState.toFireStore(),
@@ -162,60 +166,61 @@ class PKBattleService {
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
-  Future<void> initiateBattle(String roomId) async {
+  Future<void> initiateBattle(String userId) async {
     try {
       final updates = {
         PKBattleConfig.battleTypeField: BattleType.waiting.value,
         PKBattleConfig.battleCreatedAtField: DateTime.now().millisecondsSinceEpoch,
         PKBattleConfig.battleDurationField: PKBattleConfig.battleDurationInMinutes,
         PKBattleConfig.typeField: LivestreamType.pk_battle.value,
+        'title': 'PK Battle',
       };
 
-      await updateLivestream(roomId, updates);
-      log("Battle initiated: $roomId");
+      await updateLivestream(userId, updates);
+      log("Battle initiated for user: $userId");
     } catch (e) {
       log("Error initiating battle: $e");
       rethrow;
     }
   }
 
-  Future<void> startBattleRunning(String roomId) async {
+  Future<void> startBattleRunning(String userId) async {
     try {
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.battleTypeField: BattleType.running.value,
         PKBattleConfig.battleStartedAtField: DateTime.now().millisecondsSinceEpoch,
       });
-      log("Battle running: $roomId");
+      log("Battle running for user: $userId");
     } catch (e) {
       log("Error starting battle running: $e");
       rethrow;
     }
   }
 
-  Future<void> endBattle(String roomId, String? winnerId) async {
+  Future<void> endBattle(String userId, String? winnerId) async {
     try {
       final winner = winnerId != null ? {'userId': winnerId} : null;
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.battleTypeField: BattleType.ended.value,
         PKBattleConfig.typeField: LivestreamType.normal.value,
         PKBattleConfig.battleWinnerField: winner,
       });
-      log("Battle ended: $roomId");
+      log("Battle ended for user: $userId");
     } catch (e) {
       log("Error ending battle: $e");
       rethrow;
     }
   }
 
-  Future<void> resetBattleState(String roomId) async {
+  Future<void> resetBattleState(String userId) async {
     try {
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.battleTypeField: BattleType.initiate.value,
         PKBattleConfig.battleWinnerField: null,
         PKBattleConfig.battleStartedAtField: null,
         PKBattleConfig.battleCreatedAtField: null,
       });
-      log("Battle state reset: $roomId");
+      log("Battle state reset for user: $userId");
     } catch (e) {
       log("Error resetting battle state: $e");
       rethrow;
@@ -223,52 +228,53 @@ class PKBattleService {
   }
 
   // Battle-specific Operations
-  Future<void> startBattle(String roomId, {int? coHostId}) async {
+  Future<void> startBattle(String userId, {String? coHostId}) async {
     try {
       final updates = {
         PKBattleConfig.battleTypeField: BattleType.waiting.value,
         PKBattleConfig.battleCreatedAtField: DateTime.now().millisecondsSinceEpoch,
         PKBattleConfig.battleDurationField: PKBattleConfig.battleDurationInMinutes,
-        PKBattleConfig.typeField: LivestreamType.battle.value,
+        PKBattleConfig.typeField: LivestreamType.pk_battle.value,
+        'title': 'PK Battle',
       };
 
       if (coHostId != null) {
         updates[PKBattleConfig.coHostIdsField] = [coHostId];
       }
 
-      await updateLivestream(roomId, updates);
-      log('Battle started: $roomId');
+      await updateLivestream(userId, updates);
+      log('Battle started for user: $userId');
     } catch (e) {
       log('Error starting battle: $e');
       rethrow;
     }
   }
 
-  Future<void> updateBattleType(String roomId, BattleType battleType) async {
+  Future<void> updateBattleType(String userId, BattleType battleType) async {
     try {
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.battleTypeField: battleType.value,
       });
-      log('Battle type updated: $roomId -> ${battleType.value}');
+      log('Battle type updated: $userId -> ${battleType.value}');
     } catch (e) {
       log('Error updating battle type: $e');
       rethrow;
     }
   }
 
-  Future<void> resetBattleCoins(String roomId, List<int> userIds) async {
+  Future<void> resetBattleCoins(String userId, List<String> userIds) async {
     try {
       final batch = _firestore.batch();
       
-      for (int userId in userIds) {
-        final userStateRef = _getUserStateCollection(roomId).doc(userId.toString());
+      for (String userStateId in userIds) {
+        final userStateRef = _getLiveStreamUserDoc(userId).collection(PKBattleConfig.userStateSubCollection).doc(userStateId);
         batch.update(userStateRef, {
           PKBattleConfig.currentBattleCoinField: 0,
         });
       }
       
       await batch.commit();
-      log('Battle coins reset: $roomId');
+      log('Battle coins reset for user: $userId');
     } catch (e) {
       log('Error resetting battle coins: $e');
       rethrow;
@@ -277,9 +283,9 @@ class PKBattleService {
 
   // Gift Operations
   Future<void> sendGift({
-    required String roomId,
-    required int senderId,
-    required int receiverId,
+    required String userId,
+    required String senderId,
+    required String receiverId,
     required int giftId,
     required int coinValue,
     required GiftType giftType,
@@ -295,14 +301,14 @@ class PKBattleService {
         giftId: giftId,
         receiverId: receiverId,
         senderId: senderId,
-        roomId: roomId,
+        roomId: userId,
       );
 
-      final commentRef = _getCommentsCollection(roomId).doc();
+      final commentRef = _getLiveStreamUserDoc(userId).collection(PKBattleConfig.commentsSubCollection).doc();
       batch.set(commentRef, giftComment.toFireStore());
 
       // Update receiver's coins based on gift type
-      final receiverStateRef = _getUserStateCollection(roomId).doc(receiverId.toString());
+      final receiverStateRef = _getLiveStreamUserDoc(userId).collection(PKBattleConfig.userStateSubCollection).doc(receiverId);
       
       if (giftType == GiftType.battle) {
         batch.update(receiverStateRef, {
@@ -316,7 +322,7 @@ class PKBattleService {
       }
 
       await batch.commit();
-      log('Gift sent: $roomId, $senderId -> $receiverId, $coinValue coins');
+      log('Gift sent: $userId, $senderId -> $receiverId, $coinValue coins');
     } catch (e) {
       log('Error sending gift: $e');
       rethrow;
@@ -324,9 +330,9 @@ class PKBattleService {
   }
 
   // Utility Methods
-  Future<void> incrementWatchingCount(String roomId) async {
+  Future<void> incrementWatchingCount(String userId) async {
     try {
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.watchingCountField: FieldValue.increment(1),
       });
     } catch (e) {
@@ -334,9 +340,9 @@ class PKBattleService {
     }
   }
 
-  Future<void> decrementWatchingCount(String roomId) async {
+  Future<void> decrementWatchingCount(String userId) async {
     try {
-      await updateLivestream(roomId, {
+      await updateLivestream(userId, {
         PKBattleConfig.watchingCountField: FieldValue.increment(-1),
       });
     } catch (e) {
@@ -344,15 +350,16 @@ class PKBattleService {
     }
   }
 
-  Future<void> deleteLivestream(String roomId) async {
+  Future<void> deleteLivestream(String userId) async {
     try {
       // Delete all subcollections first
-      await _deleteCollection(_getUserStateCollection(roomId));
-      await _deleteCollection(_getCommentsCollection(roomId));
+      await _deleteCollection(_getLiveStreamUserDoc(userId).collection(PKBattleConfig.userStateSubCollection));
+      await _deleteCollection(_getLiveStreamUserDoc(userId).collection(PKBattleConfig.commentsSubCollection));
+      await _deleteCollection(_getPkBattleCollection(userId));
       
       // Delete the main document
-      await _getLiveStreamDoc(roomId).delete();
-      log('Livestream deleted: $roomId');
+      await _getLiveStreamUserDoc(userId).delete();
+      log('Livestream deleted for user: $userId');
     } catch (e) {
       log('Error deleting livestream: $e');
       rethrow;
@@ -371,26 +378,27 @@ class PKBattleService {
   }
 
   // Battle Winner Calculation
-  Future<Map<String, dynamic>> calculateBattleWinner(String roomId) async {
+  Future<Map<String, dynamic>> calculateBattleWinner(String userId) async {
     try {
-      final userStates = await _getUserStateCollection(roomId)
+      final userStates = await _getLiveStreamUserDoc(userId)
+          .collection(PKBattleConfig.userStateSubCollection)
           .where('type', whereIn: [PKBattleConfig.userTypeHost, PKBattleConfig.userTypeCoHost])
           .get();
 
       int maxCoins = 0;
-      int? winnerId;
-      Map<int, int> userCoins = {};
+      String? winnerId;
+      Map<String, int> userCoins = {};
 
       for (var doc in userStates.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final userId = data['userId'] as int;
+        final userStateId = data['userId'] as String;
         final coins = data[PKBattleConfig.currentBattleCoinField] as int? ?? 0;
         
-        userCoins[userId] = coins;
+        userCoins[userStateId] = coins;
         
         if (coins > maxCoins) {
           maxCoins = coins;
-          winnerId = userId;
+          winnerId = userStateId;
         }
       }
 
@@ -404,9 +412,10 @@ class PKBattleService {
       return {
         'winnerId': null,
         'maxCoins': 0,
-        'userCoins': <int, int>{},
+        'userCoins': <String, int>{},
       };
     }
   }
 }
+
 
