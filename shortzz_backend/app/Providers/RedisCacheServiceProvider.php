@@ -47,6 +47,9 @@ class RedisCacheServiceProvider extends ServiceProvider
             config(['cache.default' => 'file']);
             config(['session.driver' => 'file']);
             config(['queue.default' => 'sync']);
+            
+            // Also update GeoIP cache tags to empty array for file driver
+            config(['geoip.cache_tags' => []]);
         }
     }
 } 

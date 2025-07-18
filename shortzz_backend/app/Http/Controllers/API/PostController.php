@@ -13,6 +13,7 @@ use Session;
 use DB;
 use Log;
 use Storage;
+use App\Services\CacheInvalidationService;
 use App\User;
 use App\Common;
 use App\Admin;
@@ -559,18 +560,8 @@ class PostController extends Controller
                 'post_id' => $post_id
             ]);
             
-            // Invalidate cache for this user's videos
-            $this->invalidateUserVideosCache($user_id);
-            
-            // Invalidate recommendation cache for trending posts
-            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
-            
-            // If the post has hashtags, invalidate related hashtag caches
-            if (!empty($post_hash_tag)) {
-                $this->invalidateHashtagCaches($post_hash_tag);
-            }
+            // Invalidate cache for this user's videos and related caches
+            CacheInvalidationService::invalidatePostCache($post_id, $user_id, $post_hash_tag);
 
             Log::info('addPost: Post creation completed successfully', [
                 'user_id' => $user_id,
@@ -643,24 +634,9 @@ class PostController extends Controller
         Notification::where('item_id', $post_id)->delete();
         
         if ($delete_post) {
-            // Invalidate user's videos cache
-            $this->invalidateUserVideosCache($user_id);
-            
-            // Invalidate post detail cache
-            Cache::forget(CacheKeys::POST_DETAIL . $post_id);
-            
-            // Invalidate post comments cache
-            Cache::forget(CacheKeys::POST_COMMENTS . $post_id);
-            
-            // Invalidate trending posts cache 
-            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
-            
-            // If the post had hashtags, invalidate related hashtag caches
-            if (!empty($postData) && !empty($postData->post_hash_tag)) {
-                $this->invalidateHashtagCaches($postData->post_hash_tag);
-            }
+            // Invalidate all post-related caches
+            $hashtags = !empty($postData) ? $postData->post_hash_tag : null;
+            CacheInvalidationService::invalidatePostCache($post_id, $user_id, $hashtags);
             
             // Clear recommendation caches
             $cacheKey = CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':*';

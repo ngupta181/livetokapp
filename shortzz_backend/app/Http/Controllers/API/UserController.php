@@ -13,6 +13,7 @@ use DB;
 use File;
 use Log;
 use Storage;
+use App\Services\CacheInvalidationService;
 use App\User;
 use App\Admin;
 use App\Post;
@@ -626,7 +627,7 @@ class UserController extends Controller
             unset($User->updated_at);
             
             // Invalidate user profile cache after update
-            $this->invalidateUserCache($user_id);
+            CacheInvalidationService::invalidateUserCache($user_id);
 
             return response()->json(['status' => 200, 'message' => "User details update successfully", 'data' => $User]);
         } else {
@@ -672,7 +673,7 @@ class UserController extends Controller
 
         if ($result) {
             // Invalidate all caches related to this user
-            $this->invalidateUserCache($user_id);
+            CacheInvalidationService::invalidateUserCache($user_id);
             
             // Also invalidate any recommendations that might include this user's content
             Cache::forget(CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':*');
@@ -1300,7 +1301,7 @@ class UserController extends Controller
         }
         
         // Invalidate user profile cache after update
-        $this->invalidateUserCache($user_id);
+        CacheInvalidationService::invalidateUserCache($user_id);
         
         // Get updated user data
         $updatedUser = User::where('user_id', $user_id)->first();

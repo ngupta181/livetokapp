@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\SyncShazamMusic::class,
         \App\Console\Commands\UnblockIp::class,
         \App\Console\Commands\CheckIpStatus::class,
+        \App\Console\Commands\CacheManagement::class,
     ];
 
     /**

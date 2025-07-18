@@ -302,29 +302,27 @@ class _WalletScreenState extends State<WalletScreen> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: ColorRes.colorPrimary),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: ColorRes.colorPrimary),
-              SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: ColorRes.colorPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ColorRes.colorPrimary),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: ColorRes.colorPrimary),
+            SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: ColorRes.colorPrimary,
+                fontWeight: FontWeight.w500,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

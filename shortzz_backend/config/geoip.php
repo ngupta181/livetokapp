@@ -119,7 +119,7 @@ return [
     |
     */
 
-    'cache_tags' => ['torann-geoip-location'],
+    'cache_tags' => env('CACHE_DRIVER') === 'redis' ? ['torann-geoip-location'] : [],
 
     /*
     |--------------------------------------------------------------------------

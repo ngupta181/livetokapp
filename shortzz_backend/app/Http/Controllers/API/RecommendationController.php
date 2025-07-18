@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Validator;
 use DB;
 use Log;
+use App\Services\CacheInvalidationService;
 use App\User;
 use App\Post;
 use App\UserProfile;
@@ -93,15 +94,7 @@ class RecommendationController extends Controller
         $this->updateContentProfile($post_id);
         
         // Invalidate recommendation cache for this user since their profile has changed
-        Cache::forget(CacheKeys::RECOMMENDATION_FOR_USER . $user_id . ':20'); // Common limit value
-        
-        // If this is a like/comment/share interaction, also invalidate trending cache
-        if (in_array($interaction_type, ['like', 'comment', 'share'])) {
-            // Clear trending posts caches - use pattern to clear all trending caches
-            Cache::forget(CacheKeys::TRENDING_POSTS . '10:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '15:' . $user_id);
-            Cache::forget(CacheKeys::TRENDING_POSTS . '20:' . $user_id);
-        }
+        CacheInvalidationService::invalidateRecommendationCache($user_id);
         
         return response()->json(['status' => 200, 'message' => 'Interaction tracked successfully']);
     }

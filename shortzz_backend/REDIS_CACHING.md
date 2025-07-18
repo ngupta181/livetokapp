@@ -42,11 +42,44 @@ Cache TTL (Time To Live) values are also defined in this file:
 
 ## Cache Invalidation
 
+Cache invalidation has been improved with a dedicated service class that handles all cache clearing operations:
+
+### CacheInvalidationService
+
+The `App\Services\CacheInvalidationService` provides centralized cache invalidation with the following methods:
+
+1. **`invalidateUserCache($userId)`** - Clears all user-related caches including:
+   - User profile data
+   - Follower/following counts
+   - User statistics
+   - Follow relationships
+
+2. **`invalidatePostCache($postId, $userId, $hashtags)`** - Clears all post-related caches including:
+   - Post details and metadata
+   - Comments and likes counts
+   - User's video lists
+   - Trending posts
+   - Hashtag-related caches
+
+3. **`invalidateRecommendationCache($userId)`** - Clears recommendation caches for a user
+
+4. **`invalidateHashtagCaches($hashtagString)`** - Clears hashtag-related caches
+
+### Automatic Cache Invalidation
+
 Cache invalidation occurs automatically when data is updated:
 
-1. When a user's profile is updated, the `invalidateUserCache()` method clears all related caches
-2. When a post is added or deleted, related caches are invalidated
-3. When a user interacts with content (likes, comments), relevant caches are updated
+1. **User Updates**: When a user's profile is updated, all related caches are cleared
+2. **Post Operations**: When posts are created, updated, or deleted, related caches are invalidated
+3. **User Interactions**: When users like, comment, or share content, relevant caches are updated
+4. **Follow Actions**: When users follow/unfollow others, relationship caches are cleared
+
+### Performance Improvements
+
+- Uses Redis SCAN instead of KEYS command for better performance
+- Implements batch deletion for multiple cache keys
+- Includes fallback mechanisms for reliability
+- Provides detailed logging for debugging
 
 ## Setup Instructions
 
@@ -120,6 +153,22 @@ If you see errors like `Class "Predis\Client" not found`, follow these steps:
    sudo yum install php-redis
    ```
 
+### GeoIP Cache Tagging Issues
+
+If you see "This cache store does not support tagging" errors:
+
+1. **Automatic Resolution**: The `GeoIPCacheServiceProvider` automatically handles this by disabling cache tags for file/database drivers.
+
+2. **Manual Fix**: Update `config/geoip.php`:
+   ```php
+   'cache_tags' => env('CACHE_DRIVER') === 'redis' ? ['torann-geoip-location'] : [],
+   ```
+
+3. **Clear Configuration Cache**:
+   ```bash
+   php artisan config:clear
+   ```
+
 ### Redis Connection Issues
 
 If Redis fails to connect:
@@ -155,8 +204,67 @@ You can monitor Redis caching using the following Redis commands:
    redis-cli INFO stats
    ```
 
+## Cache Management Commands
+
+Use the following Artisan commands for cache management and debugging:
+
+### View Cache Statistics
+```bash
+php artisan cache:manage stats
+```
+
+### Test Cache Connection
+```bash
+php artisan cache:manage test
+```
+
+### Clear All Cache
+```bash
+php artisan cache:manage clear
+```
+
+### Invalidate User Cache
+```bash
+php artisan cache:manage invalidate-user --user-id=123
+```
+
+### Invalidate Post Cache
+```bash
+php artisan cache:manage invalidate-post --post-id=456 --user-id=123 --hashtags="tag1,tag2"
+```
+
+## Debugging Cache Issues
+
+### Enable Cache Debug Logging
+
+Add the following header to your API requests to enable detailed cache logging:
+```
+X-Cache-Debug: true
+```
+
+This will log cache operations and execution times when `APP_DEBUG=true`.
+
+### Common Issues and Solutions
+
+1. **Cache keys not being cleared**: 
+   - Check Redis connection with `php artisan cache:manage test`
+   - Verify cache prefix configuration in `.env`
+   - Review logs for cache invalidation errors
+
+2. **Performance issues**:
+   - Monitor Redis memory usage with `php artisan cache:manage stats`
+   - Consider adjusting TTL values in `CacheKeys.php`
+   - Use Redis MONITOR command to watch real-time operations
+
+3. **Inconsistent data**:
+   - Clear specific user/post caches using management commands
+   - Check if cache invalidation is being called after data updates
+   - Verify cache key patterns match between setting and clearing
+
 ## Maintenance
 
-- Regularly monitor Redis memory usage
+- Regularly monitor Redis memory usage with `php artisan cache:manage stats`
 - Consider implementing cache warming for frequently accessed data
-- Adjust TTL values based on data volatility and access patterns 
+- Adjust TTL values in `app/CacheKeys.php` based on data volatility and access patterns
+- Use the cache management commands for debugging and maintenance
+- Monitor application logs for cache-related errors
