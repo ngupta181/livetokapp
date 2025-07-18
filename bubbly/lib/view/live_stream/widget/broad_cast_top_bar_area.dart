@@ -1,17 +1,13 @@
 import 'package:bubbly/languages/languages_keys.dart';
-import 'package:bubbly/utils/assert_image.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/font_res.dart';
 import 'package:bubbly/utils/my_loading/my_loading.dart';
 import 'package:bubbly/view/live_stream/model/broad_cast_screen_view_model.dart';
 import 'package:bubbly/view/live_stream/widget/blur_tab.dart';
 import 'package:bubbly/view/live_stream/widget/top_viewers_row.dart';
-import 'package:bubbly/view/live_stream/widget/pk_battle_controls.dart';
 import 'package:bubbly/view/live_stream/widget/members_bottom_sheet.dart';
-import 'package:bubbly/view/live_stream/widget/co_host_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class BroadCastTopBarArea extends StatelessWidget {
@@ -27,74 +23,74 @@ class BroadCastTopBarArea extends StatelessWidget {
     return Consumer(builder: (context, MyLoading myLoading, child) {
       return Column(
         children: [
+          // Row 1: Live == Viewers == END (with background)
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 10),
-            padding: EdgeInsets.only(top: 10, bottom: 2),
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(horizontal: 15),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(25),
+            ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start, // Align items to the start vertically
               children: [
-                BlurTab(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.music_note, color: Colors.white, size: 16),
-                        SizedBox(width: 5),
-                        Text(LKey.live.tr, style: TextStyle(color: ColorRes.colorPink, fontSize: 12)),
-                      ],
-                    ),
+                // Live indicator
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.music_note, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        LKey.live.tr,
+                        style: TextStyle(
+                          color: ColorRes.colorPink,
+                          fontSize: 13,
+                          fontFamily: FontRes.fNSfUiMedium,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(
-                  width: 10,
-                ),
-                TopViewersRow(
-                  viewers: model.commentList,
-                  onViewAllTap: () => _showViewersDialog(context),
-                ),
-                SizedBox(
-                  width: 10,
-                ),
-                // Members button
-                InkWell(
-                  onTap: () => _showMembersBottomSheet(context),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.people,
+                SizedBox(width: 12),
+                // Viewers count
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.visibility, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        '${model.liveStreamUser?.joinedUser?.length ?? 0} ${LKey.viewers.tr}',
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 16,
+                          fontSize: 13,
+                          fontFamily: FontRes.fNSfUiMedium,
                         ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Members',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontFamily: FontRes.fNSfUiMedium,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 Spacer(),
+                // END button
                 InkWell(
                   onTap: () {
                     model.onEndButtonClick();
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(20),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -103,39 +99,176 @@ class BroadCastTopBarArea extends StatelessWidget {
                           ColorRes.colorTheme,
                         ],
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: ColorRes.colorPink.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    alignment: Alignment.center,
                     child: Text(
                       LKey.end.tr.toUpperCase(),
                       style: TextStyle(
-                          color: ColorRes.white,
-                          fontSize: 14,
-                          fontFamily: FontRes.fNSfUiSemiBold),
+                        color: ColorRes.white,
+                        fontSize: 14,
+                        fontFamily: FontRes.fNSfUiSemiBold,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          // PK Battle Controls (only for host)
-          if (model.isHost) ...[
-            PKBattleControls(
-              channelName: model.channelName ?? '',
-              commentList: model.commentList,
-              model: model,
-              onCoHostJoined: () {
-                // Handle co-host joined event
-                print('Co-host joined the live stream');
-              },
-            ),
-          ],
-          // Co-Host Controls (only for co-host)
-          CoHostControls(model: model),
           
-
-          SizedBox(
-            height: 5,
+          SizedBox(height: 8),
+          
+          // Row 2: Coin collected => TopViewersRow => Flip Camera => Microphone (with background)
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(horizontal: 15),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                // Collection status (coins collected)
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.music_note, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        '0 ${LKey.collected.tr}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontFamily: FontRes.fNSfUiMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12),
+                // Top viewers row
+                Expanded(
+                  child: TopViewersRow(
+                    viewers: model.commentList,
+                    onViewAllTap: () => _showViewersDialog(context),
+                  ),
+                ),
+                SizedBox(width: 12),
+                // Flip Camera button
+                InkWell(
+                  onTap: () {
+                    model.flipCamera();
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: ColorRes.colorTheme.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.flip_camera_ios,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                // Microphone button
+                InkWell(
+                  onTap: () {
+                    model.onMuteUnMute();
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: !model.isMic 
+                          ? ColorRes.colorTheme.withOpacity(0.8)
+                          : Colors.red.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      !model.isMic ? Icons.mic : Icons.mic_off,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
+
+          SizedBox(height: 8),
+          
+          // Row 3: Members button (centered with background)
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(horizontal: 15),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Members button
+                InkWell(
+                  onTap: () => _showMembersBottomSheet(context),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.people,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          LKey.members.tr,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontFamily: FontRes.fNSfUiMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: 8),
         ],
       );
     });
@@ -147,6 +280,7 @@ class BroadCastTopBarArea extends StatelessWidget {
         channelName: model.channelName ?? '',
         isHost: model.isHost,
         commentList: model.commentList,
+        model: model, // Pass the BroadCastScreenViewModel
         onCoHostRemoved: () {
           // Refresh the broadcast screen when co-host is removed
           model.notifyListeners();

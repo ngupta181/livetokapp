@@ -229,4 +229,5 @@ const englishEN = {
   LKey.replyingTo: "Replying to",
   LKey.typeYourReply: "Type your reply...",
   LKey.errorEditingComment: "Error updating comment. Please try again.",
+  LKey.members: "Members",
 };

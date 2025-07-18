@@ -46,7 +46,7 @@ class TopViewersRow extends StatelessWidget {
               ),
             
             // Show count if there are more viewers
-            if (uniqueViewers.length > 3)
+            if (uniqueViewers.length > 1)
               Container(
                 margin: EdgeInsets.only(left: 5),
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -318,4 +318,5 @@ class LKey {
   static const pleaseEnterValidAmount = 'pleaseEnterValidAmount';
   static const insufficientCoins = 'insufficientCoins';
   static const viewers = 'viewers';
+  static const members = 'members';
 }
