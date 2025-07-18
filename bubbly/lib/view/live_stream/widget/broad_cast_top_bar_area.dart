@@ -131,6 +131,8 @@ class BroadCastTopBarArea extends StatelessWidget {
           ],
           // Co-Host Controls (only for co-host)
           CoHostControls(model: model),
+          
+
           SizedBox(
             height: 5,
           ),
@@ -145,6 +147,10 @@ class BroadCastTopBarArea extends StatelessWidget {
         channelName: model.channelName ?? '',
         isHost: model.isHost,
         commentList: model.commentList,
+        onCoHostRemoved: () {
+          // Refresh the broadcast screen when co-host is removed
+          model.notifyListeners();
+        },
       ),
       backgroundColor: Colors.transparent,
       isScrollControlled: true,

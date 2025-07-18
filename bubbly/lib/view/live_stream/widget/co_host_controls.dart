@@ -3,9 +3,13 @@ import 'package:get/get.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:bubbly/utils/colors.dart';
 import 'package:bubbly/utils/font_res.dart';
+import 'package:bubbly/utils/firebase_res.dart';
+import 'package:bubbly/utils/session_manager.dart';
 import 'package:bubbly/view/live_stream/model/broad_cast_screen_view_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
-class CoHostControls extends StatelessWidget {
+class CoHostControls extends StatefulWidget {
   final BroadCastScreenViewModel model;
 
   const CoHostControls({
@@ -14,9 +18,68 @@ class CoHostControls extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<CoHostControls> createState() => _CoHostControlsState();
+}
+
+class _CoHostControlsState extends State<CoHostControls> {
+  StreamSubscription<QuerySnapshot>? _notificationStream;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final SessionManager _pref = SessionManager();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.model.isCoHost) {
+      _listenForRemovalNotifications();
+    }
+  }
+
+  @override
+  void dispose() {
+    _notificationStream?.cancel();
+    super.dispose();
+  }
+
+  void _listenForRemovalNotifications() async {
+    await _pref.initPref();
+    final currentUser = _pref.getUser();
+    
+    _notificationStream = _db
+        .collection(FirebaseRes.liveStreamUser)
+        .doc(widget.model.channelName)
+        .collection('co_host_notifications')
+        .where('userId', isEqualTo: currentUser?.data?.userId)
+        .where('type', isEqualTo: 'removed')
+        .snapshots()
+        .listen((snapshot) {
+      for (var doc in snapshot.docChanges) {
+        if (doc.type == DocumentChangeType.added) {
+          _handleRemovalNotification(doc.doc.data() as Map<String, dynamic>);
+          // Delete the notification after processing
+          doc.doc.reference.delete();
+        }
+      }
+    });
+  }
+
+  void _handleRemovalNotification(Map<String, dynamic> notification) {
+    // Show notification to user
+    Get.snackbar(
+      'Removed as Co-Host',
+      notification['message'] ?? 'You have been removed as co-host by the host',
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      duration: Duration(seconds: 5),
+    );
+
+    // Automatically leave co-host mode without confirmation
+    _performLeaveCoHost();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Only show for co-hosts
-    if (!model.isCoHost) return SizedBox.shrink();
+    if (!widget.model.isCoHost) return SizedBox.shrink();
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -25,10 +88,10 @@ class CoHostControls extends StatelessWidget {
         children: [
           // Mute/Unmute button
           _buildControlButton(
-            icon: model.isMic ? Icons.mic : Icons.mic_off,
-            label: model.isMic ? 'Mute' : 'Unmute',
+            icon: widget.model.isMic ? Icons.mic : Icons.mic_off,
+            label: widget.model.isMic ? 'Mute' : 'Unmute',
             onTap: () => _toggleMicrophone(),
-            color: model.isMic ? ColorRes.colorTheme : Colors.red,
+            color: widget.model.isMic ? ColorRes.colorTheme : Colors.red,
           ),
           
           // Camera toggle button
@@ -97,14 +160,14 @@ class CoHostControls extends StatelessWidget {
 
   void _toggleMicrophone() {
     try {
-      model.agoraEngine.muteLocalAudioStream(!model.isMic);
-      model.isMic = !model.isMic;
-      model.notifyListeners();
+      widget.model.agoraEngine.muteLocalAudioStream(!widget.model.isMic);
+      widget.model.isMic = !widget.model.isMic;
+      widget.model.notifyListeners();
       
       Get.snackbar(
-        model.isMic ? 'Microphone On' : 'Microphone Off',
-        model.isMic ? 'Your microphone is now unmuted' : 'Your microphone is now muted',
-        backgroundColor: model.isMic ? Colors.green : Colors.orange,
+        widget.model.isMic ? 'Microphone On' : 'Microphone Off',
+        widget.model.isMic ? 'Your microphone is now unmuted' : 'Your microphone is now muted',
+        backgroundColor: widget.model.isMic ? Colors.green : Colors.orange,
         colorText: Colors.white,
         duration: Duration(seconds: 2),
       );
@@ -115,7 +178,7 @@ class CoHostControls extends StatelessWidget {
 
   void _flipCamera() {
     try {
-      model.agoraEngine.switchCamera();
+      widget.model.agoraEngine.switchCamera();
       
       Get.snackbar(
         'Camera Switched',
@@ -157,20 +220,20 @@ class CoHostControls extends StatelessWidget {
   Future<void> _performLeaveCoHost() async {
     try {
       // Leave current channel as broadcaster
-      await model.agoraEngine.leaveChannel();
+      await widget.model.agoraEngine.leaveChannel();
       
       // Update local state
-      model.isCoHost = false;
-      model.isHost = false;
+      widget.model.isCoHost = false;
+      widget.model.isHost = false;
       
       // Rejoin as audience
-      await model.agoraEngine.setClientRole(role: ClientRoleType.clientRoleAudience);
-      await model.agoraEngine.disableVideo();
+      await widget.model.agoraEngine.setClientRole(role: ClientRoleType.clientRoleAudience);
+      await widget.model.agoraEngine.disableVideo();
       
       // Join the channel again as audience
-      await model.agoraEngine.joinChannel(
-        token: model.agoraToken,
-        channelId: model.channelName,
+      await widget.model.agoraEngine.joinChannel(
+        token: widget.model.agoraToken,
+        channelId: widget.model.channelName,
         uid: 0, // Use 0 for auto-assigned UID
         options: ChannelMediaOptions(
           clientRoleType: ClientRoleType.clientRoleAudience,
@@ -178,7 +241,7 @@ class CoHostControls extends StatelessWidget {
         ),
       );
       
-      model.notifyListeners();
+      widget.model.notifyListeners();
       
       Get.snackbar(
         'Left Co-Host',

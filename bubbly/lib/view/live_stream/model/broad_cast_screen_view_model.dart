@@ -168,6 +168,7 @@ class BroadCastScreenViewModel extends BaseViewModel {
             } else if (isCoHost) {
               // Co-host sees host
               _remoteID = remoteUid;
+              print('Co-host: Host detected with ID: $remoteUid');
             } else {
               // Regular audience - identify users based on Firebase document
               if (_remoteID == null) {
@@ -178,10 +179,14 @@ class BroadCastScreenViewModel extends BaseViewModel {
                 // User joining matches co-host UID from Firebase document
                 _coHostID = remoteUid;
                 print('Audience: Co-host detected with ID: $remoteUid (from Firebase)');
-              } else if (_coHostID == null) {
-                // Fallback: assume second broadcaster is co-host
+              } else if (_coHostID == null && _remoteID != remoteUid) {
+                // Second broadcaster joining - likely co-host
                 _coHostID = remoteUid;
                 print('Audience: Co-host detected with ID: $remoteUid (fallback)');
+              } else if (_remoteID == null) {
+                // Fallback: if we still don't have a host, this could be the host
+                _remoteID = remoteUid;
+                print('Audience: Host detected with ID: $remoteUid (fallback)');
               }
               
               // Temporarily disabled automatic join message for viewers to prevent crashes
@@ -207,17 +212,65 @@ class BroadCastScreenViewModel extends BaseViewModel {
       },
        onUserOffline: (RtcConnection connection, int remoteUid,
           UserOfflineReasonType reason) {
-        print('onUserOffline: $remoteUid');
+        print('onUserOffline: $remoteUid, reason: $reason');
         if (Get.isBottomSheetOpen == true) {
           Get.back();
         }
         
-        if (remoteUid == _coHostID) {
-          _coHostID = null;
-        } else if (remoteUid == _remoteID) {
-          _remoteID = null;
-        }
-        notifyListeners();
+        // Prevent operations on disposed widget
+        if (_isDisposed) return;
+        
+        // Use post frame callback to ensure safe UI updates
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_isDisposed) return;
+          
+          try {
+            if (remoteUid == _coHostID) {
+              print('Co-host went offline: $remoteUid');
+              _coHostID = null;
+              
+              // If we're audience and co-host left, show notification
+              if (!isHost && !isCoHost) {
+                Get.snackbar(
+                  'Co-Host Left',
+                  'The co-host has left the stream',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                  duration: Duration(seconds: 2),
+                );
+              }
+            } else if (remoteUid == _remoteID) {
+              print('Host went offline: $remoteUid');
+              
+              // If host goes offline, this is critical
+              if (isHost) {
+                // This shouldn't happen for the host themselves
+                print('Warning: Host received offline event for themselves');
+              } else {
+                // For audience/co-host, host going offline means stream ended
+                _remoteID = null;
+                
+                if (!isCoHost) {
+                  // Regular audience - show stream ended message
+                  Get.snackbar(
+                    'Stream Ended',
+                    'The host has ended the live stream',
+                    backgroundColor: Colors.red,
+                    colorText: Colors.white,
+                    duration: Duration(seconds: 3),
+                  );
+                }
+              }
+            }
+            
+            // Safe UI update
+            if (!_isDisposed) {
+              notifyListeners();
+            }
+          } catch (e) {
+            print('Error in onUserOffline post frame callback: $e');
+          }
+        });
       },
       onLeaveChannel: (connection, stats) {
         if (isHost) {
@@ -228,16 +281,22 @@ class BroadCastScreenViewModel extends BaseViewModel {
   }
 
   Widget videoPanel() {
+    print('🎥 VideoPanel - isJoined: $_isJoined, isHost: $isHost, isCoHost: $isCoHost');
+    print('🎥 VideoPanel - remoteID: $_remoteID, coHostID: $_coHostID');
+    
     if (!_isJoined) {
       return LoaderDialog();
     } else if (isHost && _coHostID != null) {
       // Host with co-host - split screen view
+      print('🎥 Showing host split screen view');
       return _buildSplitScreenView();
     } else if (isCoHost && _remoteID != null) {
       // Co-host with host - split screen view
+      print('🎥 Showing co-host split screen view');
       return _buildSplitScreenView();
     } else if (isHost) {
       // Host without co-host - full screen
+      print('🎥 Showing host full screen view');
       return AgoraVideoView(
         controller: VideoViewController(
             rtcEngine: agoraEngine,
@@ -249,18 +308,55 @@ class BroadCastScreenViewModel extends BaseViewModel {
       // Audience viewing - check if there's a co-host
       if (_coHostID != null && _remoteID != null) {
         // Audience viewing both host and co-host - split screen view
+        print('🎥 Showing audience split screen view (host + co-host)');
         return _buildAudienceSplitScreenView();
+      } else if (_remoteID != null) {
+        // Audience viewing host only (including ex-co-hosts)
+        print('🎥 Showing audience single view (host only) - remoteID: $_remoteID');
+        return AgoraVideoView(
+          controller: VideoViewController.remote(
+            rtcEngine: agoraEngine,
+            canvas: VideoCanvas(uid: _remoteID),
+            connection: RtcConnection(channelId: _channelName),
+          ),
+        );
       } else {
-        // Audience viewing host only
-        return _remoteID != null
-            ? AgoraVideoView(
-                controller: VideoViewController.remote(
-                  rtcEngine: agoraEngine,
-                  canvas: VideoCanvas(uid: _remoteID),
-                  connection: RtcConnection(channelId: _channelName),
+        // No video to show - show loading or placeholder
+        print('🎥 No video to show - showing placeholder');
+        print('🎥 Debug: isHost=$isHost, isCoHost=$isCoHost, _remoteID=$_remoteID, _coHostID=$_coHostID');
+        return Container(
+          color: Colors.black,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  isCoHost ? 'Reconnecting to host...' : 'Connecting to stream...',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
-              )
-            : SizedBox();
+                SizedBox(height: 8),
+                Text(
+                  'Debug: Host=$isHost, CoHost=$isCoHost, RemoteID=$_remoteID',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                SizedBox(height: 16),
+                // Add recovery button for debugging
+                ElevatedButton(
+                  onPressed: () => recoverVideoStream(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                  ),
+                  child: Text(
+                    'Retry Connection',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       }
     }
   }
@@ -593,9 +689,9 @@ class BroadCastScreenViewModel extends BaseViewModel {
         .listen((event) {
       liveStreamUser = event.data();
       
-      // For audience members, update co-host information from Firebase document
-      if (!isHost && !isCoHost && liveStreamUser != null) {
-        _updateAudienceCoHostInfo();
+      // For non-host users, update co-host information from Firebase document
+      if (!isHost && liveStreamUser != null) {
+        _updateCoHostInfoFromFirebase();
       }
       
       // Check if livestream document was deleted (host ended the stream)
@@ -757,6 +853,67 @@ class BroadCastScreenViewModel extends BaseViewModel {
   void notifyNewComment() {
     notifyListeners();
   }
+
+  // Method to detect existing users in the channel (for co-host removal)
+  Future<void> _detectExistingUsers() async {
+    try {
+      print('🔍 Detecting existing users in channel...');
+      
+      // Since Agora doesn't provide a direct way to get existing users,
+      // we'll use a workaround by checking Firebase document for host info
+      if (liveStreamUser != null) {
+        // The host should be the one who created the livestream document
+        final hostUserId = liveStreamUser!.userId;
+        print('📋 Host user ID from Firebase: $hostUserId');
+        
+        // For now, we'll use a known pattern or try to detect the host
+        // In a real scenario, you might store the host's Agora UID in Firebase
+        
+        // Try to detect the host by checking if we have any remote streams
+        // This is a workaround - in production you might want to store Agora UIDs in Firebase
+        await Future.delayed(Duration(milliseconds: 500));
+        
+        // If we still don't have a remote ID, try to force detection
+        if (_remoteID == null) {
+          print('⚠️ Still no remote ID detected, trying fallback detection...');
+          // Try common host UIDs or use a detection mechanism
+          await _tryHostDetection();
+        }
+      }
+    } catch (e) {
+      print('Error in _detectExistingUsers: $e');
+    }
+  }
+
+  // Fallback method to try detecting the host
+  Future<void> _tryHostDetection() async {
+    try {
+      print('🔍 Trying host detection fallback...');
+      
+      // Wait a bit more for any potential onUserJoined events
+      await Future.delayed(Duration(milliseconds: 1000));
+      
+      // If we still don't have the host, we might need to use a different approach
+      if (_remoteID == null) {
+        print('⚠️ Host detection failed - user may need to refresh');
+        
+        // Show a message to the user
+        Get.snackbar(
+          'Connection Issue',
+          'Having trouble connecting to the host. Please try rejoining the stream.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          duration: Duration(seconds: 3),
+        );
+      }
+    } catch (e) {
+      print('Error in _tryHostDetection: $e');
+    }
+  }
+
+
+
+
 
   void flipCamera() {
     agoraEngine.switchCamera();
@@ -1116,6 +1273,132 @@ class BroadCastScreenViewModel extends BaseViewModel {
   // Method to check if we have a co-host
   bool get hasCoHost => _coHostID != null;
 
+  // Method to remove co-host (for host only)
+  Future<void> removeCoHost() async {
+    if (!isHost || _coHostID == null) {
+      print('Cannot remove co-host: not host or no co-host present');
+      return;
+    }
+
+    try {
+      // Show confirmation dialog
+      bool? confirmed = await Get.dialog<bool>(
+        AlertDialog(
+          title: Text('Remove Co-Host'),
+          content: Text('Are you sure you want to remove the co-host? They will be moved back to audience.'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Get.back(result: true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: Text('Remove', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // Store co-host ID for notification
+      final coHostToRemove = _coHostID!;
+      
+      // Remove co-host from Firebase document
+      await _removeCoHostFromFirebase(coHostToRemove);
+      
+      // Send notification to co-host through Firebase
+      await _notifyCoHostRemoval(coHostToRemove);
+      
+      // Update local state
+      _coHostID = null;
+      _coHostUIDs.remove(coHostToRemove);
+      notifyListeners();
+      
+      Get.snackbar(
+        'Co-Host Removed',
+        'Co-host has been removed and moved to audience',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+      
+    } catch (e) {
+      print('Error removing co-host: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove co-host. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+    }
+  }
+
+  // Helper method to remove co-host from Firebase
+  Future<void> _removeCoHostFromFirebase(int coHostUID) async {
+    try {
+      // Update main document to remove co-host UID and trigger listeners
+      await db.collection(FirebaseRes.liveStreamUser).doc(_channelName).update({
+        'coHostUIDs': FieldValue.arrayRemove([coHostUID]),
+        'lastUpdated': FieldValue.serverTimestamp(), // Add timestamp to ensure listeners trigger
+      });
+
+      // Remove from co-hosts subcollection if it exists
+      final coHostsSnapshot = await db
+          .collection(FirebaseRes.liveStreamUser)
+          .doc(_channelName)
+          .collection('co_hosts')
+          .where('agoraUID', isEqualTo: coHostUID)
+          .get();
+
+      for (var doc in coHostsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+      
+      print('Successfully removed co-host $coHostUID from Firebase');
+      
+    } catch (e) {
+      print('Error removing co-host from Firebase: $e');
+      throw e;
+    }
+  }
+
+  // Helper method to notify co-host of removal
+  Future<void> _notifyCoHostRemoval(int coHostUID) async {
+    try {
+      // Find the co-host user ID from the comments or user data
+      String? coHostUserId;
+      
+      // Try to find co-host user ID from recent comments
+      for (var comment in commentList) {
+        if (comment.userId != null && comment.userId != user?.data?.userId) {
+          coHostUserId = comment.userId.toString();
+          break;
+        }
+      }
+      
+      await db
+          .collection(FirebaseRes.liveStreamUser)
+          .doc(_channelName)
+          .collection('co_host_notifications')
+          .add({
+        'type': 'removed',
+        'userId': coHostUserId ?? coHostUID.toString(),
+        'coHostUID': coHostUID,
+        'timestamp': FieldValue.serverTimestamp(),
+        'message': 'You have been removed as co-host by the host',
+      });
+      
+      print('Co-host removal notification sent');
+    } catch (e) {
+      print('Error sending co-host removal notification: $e');
+    }
+  }
+
   // Method to update co-host information in Firebase
   Future<void> _updateCoHostInFirebase(int coHostUID) async {
     try {
@@ -1129,15 +1412,173 @@ class BroadCastScreenViewModel extends BaseViewModel {
     }
   }
 
-  // Method for audience to update co-host info from Firebase document
-  void _updateAudienceCoHostInfo() {
+  // Method for non-host users to update co-host info from Firebase document
+  void _updateCoHostInfoFromFirebase() {
+    final previousCoHostID = _coHostID;
+    
+    print('Firebase listener triggered - checking co-host status');
+    print('Previous co-host ID: $previousCoHostID');
+    print('Current user isCoHost: $isCoHost');
+    print('Firebase coHostUIDs: ${liveStreamUser?.coHostUIDs}');
+    
+    // Check if co-host UIDs exist and are not empty
     if (liveStreamUser?.coHostUIDs != null && liveStreamUser!.coHostUIDs!.isNotEmpty) {
       final coHostUID = liveStreamUser!.coHostUIDs!.first;
       if (_coHostID != coHostUID) {
         _coHostID = coHostUID;
-        print('Audience: Updated co-host ID from Firebase: $coHostUID');
+        print('✅ Updated co-host ID from Firebase: $coHostUID');
         notifyListeners();
       }
+    } else {
+      // No co-host UIDs in Firebase document - co-host was removed
+      if (_coHostID != null) {
+        print('🔴 Co-host removed from Firebase document - updating local state');
+        print('Previous co-host ID was: $_coHostID');
+        
+        // If current user is the co-host being removed
+        if (isCoHost) {
+          print('🔄 Current user is co-host being removed - transitioning to audience');
+          print('🔄 Pre-removal state: remoteID=$_remoteID, coHostID=$_coHostID, isJoined=$_isJoined');
+          _handleCoHostRemoval();
+        } else {
+          // For audience members, just update the UI
+          final removedCoHostID = _coHostID;
+          _coHostID = null;
+          print('👥 Audience: Co-host $removedCoHostID removed, updating UI');
+          notifyListeners();
+          
+          // Show notification to audience
+          Get.snackbar(
+            'Co-Host Left',
+            'The co-host has left the stream',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: Duration(seconds: 2),
+          );
+        }
+      }
+    }
+  }
+
+  // Method to handle when current user (co-host) is removed
+  Future<void> _handleCoHostRemoval() async {
+    try {
+      print('🔄 Starting co-host removal transition...');
+      print('🔄 BEFORE - isCoHost: $isCoHost, remoteID: $_remoteID, coHostID: $_coHostID');
+      
+      // CRITICAL: Store the host UID before making any changes
+      // When we were co-host, _remoteID pointed to the host's video stream
+      final hostUID = _remoteID;
+      print('🔄 CRITICAL: Host UID to preserve: $hostUID');
+      
+      // Change role to audience without leaving the channel
+      print('👥 Changing Agora role to audience...');
+      await agoraEngine.setClientRole(role: ClientRoleType.clientRoleAudience);
+      
+      // Stop local video preview since we're now audience
+      await agoraEngine.stopPreview();
+      await agoraEngine.disableVideo();
+      
+      // Wait a moment for role change to take effect
+      await Future.delayed(Duration(milliseconds: 200));
+      
+      // Re-enable video for receiving remote streams
+      await agoraEngine.enableVideo();
+      
+      // Update local state AFTER Agora operations
+      isCoHost = false;
+      _coHostID = null;
+      
+      // CRITICAL: Restore the host UID so we can see their video
+      // This is the key fix - we must maintain the host's video stream reference
+      if (hostUID != null) {
+        _remoteID = hostUID;
+        print('✅ RESTORED host UID: $hostUID');
+        
+        // Force setup remote video view for the host
+        try {
+          await agoraEngine.setupRemoteVideo(VideoCanvas(uid: hostUID));
+          print('✅ Re-setup remote video for host UID: $hostUID');
+        } catch (e) {
+          print('⚠️ Warning: Could not re-setup remote video: $e');
+        }
+      } else {
+        print('❌ FATAL: No host UID to restore - will show black screen');
+        // Try to detect host from Firebase document
+        if (liveStreamUser?.userId != null) {
+          print('🔍 Attempting to detect host from Firebase document...');
+          await _detectHostFromFirebase();
+        }
+      }
+      
+      print('🔄 AFTER - isCoHost: $isCoHost, remoteID: $_remoteID, coHostID: $_coHostID');
+      
+      // Force UI update immediately
+      notifyListeners();
+      
+      // Add delayed updates to ensure video appears
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (!_isDisposed) {
+          print('🔄 UI Update 1 - remoteID: $_remoteID');
+          notifyListeners();
+        }
+      });
+      
+      Future.delayed(Duration(milliseconds: 800), () {
+        if (!_isDisposed) {
+          print('🔄 UI Update 2 - remoteID: $_remoteID');
+          notifyListeners();
+        }
+      });
+      
+      Get.snackbar(
+        'Removed as Co-Host',
+        'You have been removed as co-host and are now viewing as audience',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 4),
+      );
+      
+      print('✅ Co-host removal completed - should now see host video');
+      
+    } catch (e) {
+      print('❌ ERROR in co-host removal: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to transition to audience mode.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+    }
+  }
+
+  // Helper method to detect host from Firebase when we lose the reference
+  Future<void> _detectHostFromFirebase() async {
+    try {
+      if (liveStreamUser?.userId != null) {
+        // In a real scenario, you'd store the host's Agora UID in Firebase
+        // For now, we'll use a common pattern or try to detect active streams
+        print('🔍 Trying to detect host from active streams...');
+        
+        // This is a workaround - ideally store Agora UIDs in Firebase
+        // For now, we'll wait and see if any user joins that could be the host
+        await Future.delayed(Duration(milliseconds: 500));
+        
+        // If we still don't have a remote ID, show a message to the user
+        if (_remoteID == null) {
+          print('⚠️ Could not detect host stream - showing reconnection message');
+          Get.snackbar(
+            'Reconnecting',
+            'Reconnecting to host stream...',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: Duration(seconds: 2),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error in _detectHostFromFirebase: $e');
     }
   }
 
@@ -1147,6 +1588,59 @@ class BroadCastScreenViewModel extends BaseViewModel {
       _coHostID = _remoteID;
       print('Forced co-host detection: set coHostID to $_coHostID');
       notifyListeners();
+    }
+  }
+
+  // Method to recover video stream when it's lost (for debugging/recovery)
+  Future<void> recoverVideoStream() async {
+    try {
+      print('🔧 Attempting to recover video stream...');
+      print('🔧 Current state - isHost: $isHost, isCoHost: $isCoHost, remoteID: $_remoteID, coHostID: $_coHostID');
+      
+      if (!isHost && !isCoHost && _remoteID == null) {
+        print('🔧 Audience with no remote stream - attempting recovery...');
+        
+        // Try to detect host from Firebase document
+        if (liveStreamUser?.userId != null) {
+          await _detectHostFromFirebase();
+        }
+        
+        // Force UI update
+        notifyListeners();
+        
+        Get.snackbar(
+          'Recovery Attempted',
+          'Trying to reconnect to video stream...',
+          backgroundColor: Colors.blue,
+          colorText: Colors.white,
+          duration: Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      print('Error in recoverVideoStream: $e');
+    }
+  }
+
+  // Method to manually refresh video setup (for debugging)
+  Future<void> refreshVideoSetup() async {
+    try {
+      print('🔄 Refreshing video setup...');
+      
+      if (!isHost && _remoteID != null) {
+        // Re-setup remote video for audience
+        await agoraEngine.setupRemoteVideo(VideoCanvas(uid: _remoteID));
+        print('✅ Re-setup remote video for UID: $_remoteID');
+      }
+      
+      if (!isHost && _coHostID != null) {
+        // Re-setup co-host video for audience
+        await agoraEngine.setupRemoteVideo(VideoCanvas(uid: _coHostID));
+        print('✅ Re-setup co-host video for UID: $_coHostID');
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error in refreshVideoSetup: $e');
     }
   }
 
@@ -1274,6 +1768,20 @@ class BroadCastScreenViewModel extends BaseViewModel {
     if (!_isDisposed) {
       super.notifyListeners();
     }
+  }
+
+  // Debug method to print current state
+  void debugPrintState() {
+    print('=== DEBUG STATE ===');
+    print('isHost: $isHost');
+    print('isCoHost: $isCoHost');
+    print('isJoined: $_isJoined');
+    print('remoteID: $_remoteID');
+    print('coHostID: $_coHostID');
+    print('localUserID: $_localUserID');
+    print('channelName: $_channelName');
+    print('isDisposed: $_isDisposed');
+    print('==================');
   }
 
   @override

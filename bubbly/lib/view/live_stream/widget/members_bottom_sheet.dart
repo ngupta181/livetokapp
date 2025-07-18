@@ -15,6 +15,7 @@ class MembersBottomSheet extends StatefulWidget {
   final List<LiveStreamComment> commentList;
   final Function(String userId)? onCoHostInvited;
   final Function(String userId)? onCoHostAccepted;
+  final Function()? onCoHostRemoved;
 
   const MembersBottomSheet({
     Key? key,
@@ -23,6 +24,7 @@ class MembersBottomSheet extends StatefulWidget {
     required this.commentList,
     this.onCoHostInvited,
     this.onCoHostAccepted,
+    this.onCoHostRemoved,
   }) : super(key: key);
 
   @override
@@ -669,6 +671,30 @@ class _MembersBottomSheetState extends State<MembersBottomSheet>
 
   Future<void> _removeCoHost(UserData user) async {
     try {
+      // Show confirmation dialog
+      bool? confirmed = await Get.dialog<bool>(
+        AlertDialog(
+          title: Text('Remove Co-Host'),
+          content: Text('Are you sure you want to remove ${user.fullName ?? user.userName} as co-host? They will be moved back to audience.'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Get.back(result: true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: Text('Remove', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // Remove from co-hosts subcollection
       await _db
           .collection(FirebaseRes.liveStreamUser)
           .doc(widget.channelName)
@@ -676,16 +702,60 @@ class _MembersBottomSheetState extends State<MembersBottomSheet>
           .doc(user.identity)
           .delete();
 
+      // Get the co-host's Agora UID from the document before deletion
+      final coHostDoc = await _db
+          .collection(FirebaseRes.liveStreamUser)
+          .doc(widget.channelName)
+          .collection('co_hosts')
+          .where('userId', isEqualTo: user.userId)
+          .get();
+
+      int? coHostUID;
+      if (coHostDoc.docs.isNotEmpty) {
+        coHostUID = coHostDoc.docs.first.data()['agoraUID'];
+      }
+
+      // Remove co-host UID from main document if we found it
+      if (coHostUID != null) {
+        await _db.collection(FirebaseRes.liveStreamUser).doc(widget.channelName).update({
+          'coHostUIDs': FieldValue.arrayRemove([coHostUID]),
+        });
+      }
+
+      // Send notification to co-host about removal
+      await _db
+          .collection(FirebaseRes.liveStreamUser)
+          .doc(widget.channelName)
+          .collection('co_host_notifications')
+          .add({
+        'type': 'removed',
+        'userId': user.userId,
+        'coHostUID': coHostUID,
+        'timestamp': FieldValue.serverTimestamp(),
+        'message': 'You have been removed as co-host by the host',
+      });
+
       Get.snackbar(
         'Co-host Removed',
-        'Co-host has been removed from the live stream',
+        '${user.fullName ?? user.userName} has been removed as co-host',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
 
+      // Notify parent widget about co-host removal
+      if (widget.onCoHostRemoved != null) {
+        widget.onCoHostRemoved!();
+      }
+
       _loadMembersData(); // Refresh data
     } catch (e) {
       print('Error removing co-host: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove co-host. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 }

@@ -83,8 +83,8 @@ class PKBattleControls extends StatelessWidget {
                     _buildControlButton(
                       icon: Icons.person_remove,
                       label: 'Remove Co-host',
-                      onTap: () => _removeCoHost(context),
-                      color: Colors.grey,
+                      onTap: () => model.removeCoHost(),
+                      color: Colors.red,
                     ),
                   ],
             ],
@@ -256,42 +256,6 @@ class PKBattleControls extends StatelessWidget {
     );
   }
 
-  void _removeCoHost(BuildContext context) {
-    Get.dialog(
-      AlertDialog(
-        title: Text('Remove Co-host'),
-        content: Text('Are you sure you want to remove the co-host from the live stream?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              // Implement co-host removal logic
-              _handleCoHostRemoval();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: Text('Remove', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _handleCoHostRemoval() {
-    // This would typically involve:
-    // 1. Updating Firebase to remove co-host
-    // 2. Notifying the co-host to leave
-    // 3. Updating the UI state
-    print('Removing co-host...');
-    
-    // You would implement the actual removal logic here
-    // For example, updating the livestream document in Firebase
-    // and triggering the co-host to leave the channel
-  }
 }
 
