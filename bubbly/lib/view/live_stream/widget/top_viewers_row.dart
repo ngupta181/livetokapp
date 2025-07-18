@@ -16,10 +16,10 @@ class TopViewersRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Filter unique viewers by userId
+    // Filter unique viewers by userId and handle null safety
     final Map<int?, LiveStreamComment> uniqueViewers = {};
     for (var viewer in viewers) {
-      if (viewer.userId != null) {
+      if (viewer.userId != null && viewer.userId! > 0) {
         uniqueViewers[viewer.userId] = viewer;
       }
     }
@@ -30,57 +30,90 @@ class TopViewersRow extends StatelessWidget {
     
     // Get top 3 viewers by level
     final List<LiveStreamComment> topViewers = allViewers.take(3).toList();
+    final int totalViewers = uniqueViewers.length;
+
+    // Return empty container if no viewers
+    if (topViewers.isEmpty) {
+      return SizedBox(height: 40);
+    }
 
     return InkWell(
       onTap: onViewAllTap,
       child: Container(
         height: 40,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Display top viewers
-            for (int i = 0; i < topViewers.length; i++)
-              Padding(
-                padding: EdgeInsets.only(right: i < topViewers.length - 1 ? -10 : 0),
-                child: _buildViewerAvatar(topViewers[i]),
-              ),
-            
-            // Show count if there are more viewers
-            if (uniqueViewers.length > 1)
-              Container(
-                margin: EdgeInsets.only(left: 5),
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black45,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Text(
-                  '+${uniqueViewers.length - 3}',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+        constraints: BoxConstraints(maxWidth: 200), // Prevent overflow
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Display top viewers with proper spacing
+              ...List.generate(topViewers.length, (index) {
+                return Container(
+                  margin: EdgeInsets.only(
+                    right: index < topViewers.length - 1 ? 5 : 0, // Positive margin instead of negative padding
+                  ),
+                  child: Transform.translate(
+                    offset: Offset(index * -8.0, 0), // Overlap effect with transform
+                    child: _buildViewerAvatar(topViewers[index], index),
+                  ),
+                );
+              }),
+              
+              // Show count if there are more than 3 viewers
+              if (totalViewers > 3)
+                Container(
+                  margin: EdgeInsets.only(left: totalViewers > 1 ? 8 : 5),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  constraints: BoxConstraints(minWidth: 24, minHeight: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                  ),
+                  child: Text(
+                    '+${totalViewers - 3}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildViewerAvatar(LiveStreamComment viewer) {
+  Widget _buildViewerAvatar(LiveStreamComment viewer, int index) {
     return Container(
+      key: ValueKey('viewer_${viewer.userId}_$index'), // Unique key to prevent duplicate key errors
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
-      child: LevelUtils.getProfileWithFrame(
-        userProfileUrl: "${ConstRes.itemBaseUrl}${viewer.userImage}",
-        level: viewer.userLevel ?? 1,
-        initialText: viewer.fullName?.substring(0, 1).toUpperCase() ?? 'U',
-        frameSize: 40,
-        fontSize: 14,
+      child: ClipOval(
+        child: LevelUtils.getProfileWithFrame(
+          userProfileUrl: "${ConstRes.itemBaseUrl}${viewer.userImage ?? ''}",
+          level: viewer.userLevel ?? 1,
+          initialText: (viewer.fullName?.isNotEmpty == true) 
+              ? viewer.fullName!.substring(0, 1).toUpperCase() 
+              : 'U',
+          frameSize: 32,
+          fontSize: 12,
+        ),
       ),
     );
   }

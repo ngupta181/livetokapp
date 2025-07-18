@@ -159,11 +159,14 @@ class BroadCastTopBarArea extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 12),
-                // Top viewers row
-                Expanded(
-                  child: TopViewersRow(
-                    viewers: model.commentList,
-                    onViewAllTap: () => _showViewersDialog(context),
+                // Top viewers row with flexible layout
+                Flexible(
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: 150), // Limit width to prevent overflow
+                    child: TopViewersRow(
+                      viewers: model.commentList ?? [],
+                      onViewAllTap: () => _showViewersDialog(context),
+                    ),
                   ),
                 ),
                 SizedBox(width: 12),
@@ -292,6 +295,8 @@ class BroadCastTopBarArea extends StatelessWidget {
   }
 
   void _showViewersDialog(BuildContext context) {
+    final joinedUsers = model.liveStreamUser?.joinedUser ?? [];
+    
     showDialog(
       context: context,
       builder: (context) {
@@ -300,15 +305,22 @@ class BroadCastTopBarArea extends StatelessWidget {
           content: Container(
             height: 200,
             width: 200,
-            child: ListView.builder(
-              itemCount: model.liveStreamUser?.joinedUser?.length ?? 0,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(
-                      "${model.liveStreamUser?.joinedUser?[index] ?? ""}"),
-                );
-              },
-            ),
+            child: joinedUsers.isEmpty
+                ? Center(
+                    child: Text(
+                      'No viewers yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: joinedUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = joinedUsers[index];
+                      return ListTile(
+                        title: Text(user?.toString() ?? 'Unknown User'),
+                      );
+                    },
+                  ),
           ),
           actions: [
             TextButton(
